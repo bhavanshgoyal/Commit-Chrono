@@ -55,8 +55,59 @@ def shouldRunNow(config):
     """Combines span and time checks."""
     now = getCurrentDateTime()
     return isWithinSpan(config, now) and isScheduledNow(config, now)
+# ==========================================
+# Phase 3 — Content Queue. 
+# Building the Queue Reader
+# ==========================================
+def listPendingItems(queue_dir="queue/pending"):
+    """Reads pending files and creates default metadata sidecars if missing."""
+    if not os.path.exists(queue_dir) and os.path.exists(f"../{queue_dir}"):
+        queue_dir = f"../{queue_dir}"
+        
+    items = []
+    
+    # If the folder doesn't exist yet, just return empty
+    if not os.path.exists(queue_dir):
+        return items
 
+    for file_name in os.listdir(queue_dir):
+        # Ignore gitkeep and existing meta files during the scan
+        if file_name == ".gitkeep" or file_name.endswith(".meta.json"):
+            continue
 
+        content_path = os.path.join(queue_dir, file_name)
+        meta_path = f"{content_path}.meta.json"
+
+        # The Phase 3.1 default metadata schema
+        meta = {
+            "priority": "normal",
+            "addedAt": datetime.now(zoneinfo.ZoneInfo("UTC")).isoformat(),
+            "notEligibleUntil": None,
+            "dependsOn": None,
+            "held": False,
+            "lastSkippedAt": None,
+            "type": "feature"
+        }
+
+        # If a meta file already exists, load it. Otherwise, create it.
+        if os.path.exists(meta_path):
+            try:
+                with open(meta_path, "r") as f:
+                    meta.update(json.load(f))
+            except Exception as e:
+                print(f"Error reading meta for {file_name}: {e}", file=sys.stderr)
+        else:
+            with open(meta_path, "w") as f:
+                json.dump(meta, f, indent=2)
+
+        items.append({
+            "filename": file_name,
+            "contentPath": content_path,
+            "metaPath": meta_path,
+            "meta": meta
+        })
+
+    return items
 # ==========================================
 # PHASE 1: GIT & LOGGING LOGIC
 # ==========================================
@@ -145,7 +196,12 @@ def main():
     if not shouldRunNow(config):
         print("Not scheduled to run now. Exiting.")
         return
-        
+    # --- PHASE 3: READ THE QUEUE ---
+    items = listPendingItems()
+    print(f"DEBUG: Found {len(items)} items in the pending queue.")
+    for item in items:
+        print(f" -> Found file: {item['filename']} | Priority: {item['meta']['priority']}")
+            
     # 2. Execute push cycle if scheduled
     logged_line = appendLog()
     print(f"Appended to log: {logged_line.strip()}")
