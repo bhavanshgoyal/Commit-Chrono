@@ -4,6 +4,7 @@ import json
 import subprocess
 import zoneinfo
 import random
+import shutil
 from datetime import datetime, timedelta
 
 # ==========================================
@@ -108,6 +109,81 @@ def listPendingItems(queue_dir="queue/pending"):
         })
 
     return items
+def getNextQueueItem(items, now_dt):
+    """Filters eligible items and picks the highest priority one."""
+    eligible = []
+    
+    for item in items:
+        meta = item["meta"]
+        
+        # 1. Skip if held
+        if meta.get("held", False):
+            continue
+            
+        # 2. Skip if not eligible yet
+        if meta.get("notEligibleUntil"):
+            not_eligible_dt = datetime.fromisoformat(meta["notEligibleUntil"])
+            if not_eligible_dt > now_dt:
+                continue
+                
+        # 3. Skip if it depends on a file still in the pending queue
+        if meta.get("dependsOn"):
+            depends_exists = any(i["filename"] == meta["dependsOn"] for i in items)
+            if depends_exists:
+                continue
+                
+        eligible.append(item)
+
+    if not eligible:
+        return None
+
+    # Group by priority tier, highest non-empty tier wins
+    for tier in ["high", "normal", "low"]:
+        tier_items = [i for i in eligible if i["meta"].get("priority") == tier]
+        if tier_items:
+            # Sort by lastSkippedAt (if exists), otherwise addedAt
+            def get_sort_key(x):
+                m = x["meta"]
+                key_str = m.get("lastSkippedAt") or m.get("addedAt")
+                return datetime.fromisoformat(key_str) if key_str else datetime.min.replace(tzinfo=zoneinfo.ZoneInfo("UTC"))
+                
+            tier_items.sort(key=get_sort_key)
+            return tier_items[0]
+            
+    return None
+
+def applyQueueItem(item):
+    """Copies the item's content into the main repository source folder."""
+    # We will copy it into a 'src' folder in the root of your repo
+    target_dir = "src"
+    if not os.path.exists(target_dir) and os.path.exists(f"../{target_dir}"):
+        target_dir = f"../{target_dir}"
+        
+    os.makedirs(target_dir, exist_ok=True)
+    target_path = os.path.join(target_dir, item["filename"])
+    
+    shutil.copy2(item["contentPath"], target_path)
+    return target_path
+
+def markItemUsed(item):
+    """Moves the item and its meta file to the queue/used directory."""
+    used_dir = "queue/used"
+    if not os.path.exists(used_dir) and os.path.exists(f"../{used_dir}"):
+        used_dir = f"../{used_dir}"
+        
+    # Update meta with usedAt timestamp
+    meta = item["meta"]
+    meta["usedAt"] = datetime.now(zoneinfo.ZoneInfo("UTC")).isoformat()
+    
+    with open(item["metaPath"], "w") as f:
+        json.dump(meta, f, indent=2)
+        
+    # Move both files out of pending
+    content_dest = os.path.join(used_dir, item["filename"])
+    meta_dest = os.path.join(used_dir, f"{item['filename']}.meta.json")
+    
+    shutil.move(item["contentPath"], content_dest)
+    shutil.move(item["metaPath"], meta_dest)
 # ==========================================
 # PHASE 1: GIT & LOGGING LOGIC
 # ==========================================
@@ -187,7 +263,6 @@ def getRandomMessage(file_path="messages.json"):
 # ==========================================
 # MAIN EXECUTION
 # ==========================================
-
 def main():
     print("Starting bot cycle...")
     
@@ -196,15 +271,25 @@ def main():
     if not shouldRunNow(config):
         print("Not scheduled to run now. Exiting.")
         return
-    # --- PHASE 3: READ THE QUEUE ---
+        
+    # --- PHASE 3: READ AND PROCESS THE QUEUE ---
+    now = getCurrentDateTime()
     items = listPendingItems()
     print(f"DEBUG: Found {len(items)} items in the pending queue.")
-    for item in items:
-        print(f" -> Found file: {item['filename']} | Priority: {item['meta']['priority']}")
-            
+    
+    # NEW: Pick the highest priority item from the queue
+    item = getNextQueueItem(items, now)
+
     # 2. Execute push cycle if scheduled
-    logged_line = appendLog()
-    print(f"Appended to log: {logged_line.strip()}")
+    if item is None:
+        # We only do the dummy log update if the queue is totally empty
+        print("Queue is empty or no items eligible right now. Falling back to dummy log.")
+        logged_line = appendLog()
+        print(f"Appended to log: {logged_line.strip()}")
+    else:
+        # If we found a real file, apply it to the source code folder
+        print(f"Selected item from queue: {item['filename']}")
+        applyQueueItem(item)
     
     # Pick a random commit message instead of hardcoding it
     commit_msg = getRandomMessage("messages.json")
@@ -217,8 +302,44 @@ def main():
             print(f"Success! Pushed commit: {result['commitHash']}")
         else:
             print("Success! (Nothing new to commit)")
+            
+        # NEW: Move the file to the 'used' folder ONLY if the push was successful
+        if item is not None:
+            markItemUsed(item)
+            print(f"Moved {item['filename']} to the used queue.")
     else:
         print(f"Failed! Error: {result['error']}", file=sys.stderr)
+# def main():
+#     print("Starting bot cycle...")
+    
+#     # 1. Load config and check schedule
+#     config = loadConfig("config.json")
+#     if not shouldRunNow(config):
+#         print("Not scheduled to run now. Exiting.")
+#         return
+#     # --- PHASE 3: READ THE QUEUE ---
+#     items = listPendingItems()
+#     print(f"DEBUG: Found {len(items)} items in the pending queue.")
+#     for item in items:
+#         print(f" -> Found file: {item['filename']} | Priority: {item['meta']['priority']}")
+
+#     # 2. Execute push cycle if scheduled
+#     logged_line = appendLog()
+#     print(f"Appended to log: {logged_line.strip()}")
+    
+#     # Pick a random commit message instead of hardcoding it
+#     commit_msg = getRandomMessage("messages.json")
+#     print(f"Selected commit message: '{commit_msg}'")
+    
+#     result = commitAndPush(commit_msg)
+    
+#     if result["success"]:
+#         if result["commitHash"]:
+#             print(f"Success! Pushed commit: {result['commitHash']}")
+#         else:
+#             print("Success! (Nothing new to commit)")
+#     else:
+#         print(f"Failed! Error: {result['error']}", file=sys.stderr)
 
 if __name__ == "__main__":
     main()
