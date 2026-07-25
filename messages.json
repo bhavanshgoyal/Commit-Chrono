@@ -1,0 +1,5 @@
+{
+  "general": ["minor update", "small fix", "tweak", "cleanup", "misc changes"],
+  "feature": ["add new function", "implement feature", "update logic"],
+  "fix": ["fix bug", "patch issue", "correct behavior"]
+}

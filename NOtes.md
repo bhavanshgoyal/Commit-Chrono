@@ -1,0 +1,1 @@
+Stack decision: Python for core bot (Phases 1-5), Node.js for dashboard (Phase 6).
