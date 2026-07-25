@@ -1,3 +1,7 @@
 {
-  "schedules": []
+  "startDate": "2026-07-25",
+  "spanDays": 10,
+  "times": ["09:00", "15:00", "20:00"],
+  "timezone": "Asia/Kolkata",
+  "jitterMinutes": 20
 }
