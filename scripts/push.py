@@ -260,42 +260,90 @@ def getRandomMessage(file_path="messages.json"):
     except Exception as e:
         print(f"Error loading messages: {e}. Defaulting to 'minor update'", file=sys.stderr)
         return "minor update"
+#===================================================
+#                    Phase -4  refined logs
+#===================================================
+def logRun(entry, log_path="logs/run-log.json"):
+    """Appends a run entry to the JSON log, backing it up if corrupted."""
+    if not os.path.exists(log_path) and os.path.exists(f"../{log_path}"):
+        log_path = f"../{log_path}"
+        
+    # Ensure the logs directory exists
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    
+    data = {"runs": []}
+    
+    # Try to load existing data safely
+    if os.path.exists(log_path):
+        try:
+            with open(log_path, "r") as f:
+                data = json.load(f)
+                if "runs" not in data or not isinstance(data["runs"], list):
+                    raise ValueError("Invalid schema: missing 'runs' array")
+        except Exception as e:
+            # Corrupted file - back it up as specified in Phase 4.1
+            timestamp_str = datetime.now(zoneinfo.ZoneInfo("UTC")).strftime("%Y%m%d%H%M%S")
+            backup_path = log_path.replace(".json", f".corrupt.{timestamp_str}.json")
+            shutil.copy2(log_path, backup_path)
+            print(f"Log file corrupted. Backed up to {backup_path}", file=sys.stderr)
+            data = {"runs": []} # Start fresh
+            
+    # Append the new entry
+    data["runs"].append(entry)
+    
+    # Write back to the file
+    with open(log_path, "w") as f:
+        json.dump(data, f, indent=2)
 # ==========================================
 # MAIN EXECUTION
 # ==========================================
+#phase 4
 def main():
     print("Starting bot cycle...")
     
-    # 1. Load config and check schedule
     config = loadConfig("config.json")
     if not shouldRunNow(config):
         print("Not scheduled to run now. Exiting.")
         return
         
-    # --- PHASE 3: READ AND PROCESS THE QUEUE ---
     now = getCurrentDateTime()
     items = listPendingItems()
-    print(f"DEBUG: Found {len(items)} items in the pending queue.")
     
-    # NEW: Pick the highest priority item from the queue
     item = getNextQueueItem(items, now)
 
-    # 2. Execute push cycle if scheduled
     if item is None:
-        # We only do the dummy log update if the queue is totally empty
         print("Queue is empty or no items eligible right now. Falling back to dummy log.")
-        logged_line = appendLog()
-        print(f"Appended to log: {logged_line.strip()}")
+        appendLog()
+        
     else:
-        # If we found a real file, apply it to the source code folder
         print(f"Selected item from queue: {item['filename']}")
         applyQueueItem(item)
     
-    # Pick a random commit message instead of hardcoding it
     commit_msg = getRandomMessage("messages.json")
     print(f"Selected commit message: '{commit_msg}'")
     
+    # Attempt to push
     result = commitAndPush(commit_msg)
+    
+    # --- NEW PHASE 4 LOGIC: CONSTRUCT THE LOG ENTRY ---
+    status = "success" if result["success"] else "failure"
+    if item is None and result["success"]:
+        status = "no-op" # It succeeded but only pushed a dummy log
+
+    log_entry = {
+        "timestamp": now.isoformat(),
+        "status": status,
+        "commitHash": result.get("commitHash"),
+        "item": item["filename"] if item else None,
+        "message": commit_msg,
+        "jitterSeconds": 0, # We will add jitter logic later
+        "error": result.get("error")
+    }
+    
+    # Write the receipt
+    logRun(log_entry)
+    print("Run log updated successfully.")
+    # --------------------------------------------------
     
     if result["success"]:
         if result["commitHash"]:
@@ -303,12 +351,63 @@ def main():
         else:
             print("Success! (Nothing new to commit)")
             
-        # NEW: Move the file to the 'used' folder ONLY if the push was successful
         if item is not None:
             markItemUsed(item)
             print(f"Moved {item['filename']} to the used queue.")
     else:
         print(f"Failed! Error: {result['error']}", file=sys.stderr)
+
+if __name__ == "__main__":
+    main()
+
+#phase 3
+# def main():
+#     print("Starting bot cycle...")
+    
+#     # 1. Load config and check schedule
+#     config = loadConfig("config.json")
+#     if not shouldRunNow(config):
+#         print("Not scheduled to run now. Exiting.")
+#         return
+        
+#     # --- PHASE 3: READ AND PROCESS THE QUEUE ---
+#     now = getCurrentDateTime()
+#     items = listPendingItems()
+#     print(f"DEBUG: Found {len(items)} items in the pending queue.")
+    
+#     # NEW: Pick the highest priority item from the queue
+#     item = getNextQueueItem(items, now)
+
+#     # 2. Execute push cycle if scheduled
+#     if item is None:
+#         # We only do the dummy log update if the queue is totally empty
+#         print("Queue is empty or no items eligible right now. Falling back to dummy log.")
+#         logged_line = appendLog()
+#         print(f"Appended to log: {logged_line.strip()}")
+#     else:
+#         # If we found a real file, apply it to the source code folder
+#         print(f"Selected item from queue: {item['filename']}")
+#         applyQueueItem(item)
+    
+#     # Pick a random commit message instead of hardcoding it
+#     commit_msg = getRandomMessage("messages.json")
+#     print(f"Selected commit message: '{commit_msg}'")
+    
+#     result = commitAndPush(commit_msg)
+    
+#     if result["success"]:
+#         if result["commitHash"]:
+#             print(f"Success! Pushed commit: {result['commitHash']}")
+#         else:
+#             print("Success! (Nothing new to commit)")
+            
+#         # NEW: Move the file to the 'used' folder ONLY if the push was successful
+#         if item is not None:
+#             markItemUsed(item)
+#             print(f"Moved {item['filename']} to the used queue.")
+#     else:
+#         print(f"Failed! Error: {result['error']}", file=sys.stderr)
+#phase 2+
 # def main():
 #     print("Starting bot cycle...")
     
