@@ -3,6 +3,7 @@ import sys
 import json
 import subprocess
 import zoneinfo
+import random
 from datetime import datetime, timedelta
 
 # ==========================================
@@ -109,8 +110,29 @@ def commitAndPush(message):
     commit_hash = hash_result["stdout"] if hash_result["exitCode"] == 0 else "unknown"
 
     return {"success": True, "commitHash": commit_hash, "error": None}
-
-
+#===================================================
+#                    RANDOM MESSAGE
+#===================================================
+def getRandomMessage(file_path="messages.json"):
+    """Loads messages.json and picks a random string from a random category."""
+    if not os.path.exists(file_path) and os.path.exists(f"../{file_path}"):
+        file_path = f"../{file_path}"
+        
+    try:
+        with open(file_path, "r") as f:
+            messages_dict = json.load(f)
+            
+        # Pick a random category (e.g., 'general', 'feature', 'fix')
+        categories = list(messages_dict.keys())
+        chosen_category = random.choice(categories)
+        
+        # Pick a random message from that category
+        chosen_message = random.choice(messages_dict[chosen_category])
+        return chosen_message
+        
+    except Exception as e:
+        print(f"Error loading messages: {e}. Defaulting to 'minor update'", file=sys.stderr)
+        return "minor update"
 # ==========================================
 # MAIN EXECUTION
 # ==========================================
@@ -128,7 +150,11 @@ def main():
     logged_line = appendLog()
     print(f"Appended to log: {logged_line.strip()}")
     
-    result = commitAndPush("auto update")
+    # Pick a random commit message instead of hardcoding it
+    commit_msg = getRandomMessage("messages.json")
+    print(f"Selected commit message: '{commit_msg}'")
+    
+    result = commitAndPush(commit_msg)
     
     if result["success"]:
         if result["commitHash"]:
