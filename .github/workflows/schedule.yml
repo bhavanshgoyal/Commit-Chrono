@@ -2,7 +2,7 @@ name: Scheduled Commit Bot
 
 on:
   schedule:
-    - cron: "0 9 * * *"   # daily at 09:00 UTC — placeholder, replaced in Phase 2
+    - cron: "*/5 * * * *"   # daily at 09:00 UTC — placeholder, replaced in Phase 2
   workflow_dispatch: {}     # enables the manual "Run workflow" button
 
 permissions:
