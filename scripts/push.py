@@ -332,7 +332,11 @@ def main():
     if not shouldRunNow(config):
         print("Not scheduled to run now. Exiting.")
         return
-    
+    # Check if Dry Run is active
+    dry_run = config.get("dryRun", False)
+    if dry_run:
+        print("🛠️ DRY RUN MODE ACTIVATED: No files will be moved or pushed.")
+
     # --- PHASE 4.3: JITTER LOGIC ---
     # Read jitterMinutes from config, multiply by 60 to get seconds (default to 0)
     jitter_max_seconds = config.get("jitterMinutes", 0) * 60
@@ -364,7 +368,12 @@ def main():
     result = commitAndPushWithRetry(commit_msg)
     # Attempt to push
     # result = commitAndPush(commit_msg)
-    
+    # Construct the log entry
+    status = "success" if result["success"] else "failure"
+    if dry_run:
+        status = "dry-run"
+    elif item is None and result["success"]:
+        status = "no-op"
     # --- NEW PHASE 4 LOGIC: CONSTRUCT THE LOG ENTRY ---
     status = "success" if result["success"] else "failure"
     if item is None and result["success"]:
@@ -386,17 +395,21 @@ def main():
     # --------------------------------------------------
     
     if result["success"]:
-        if result["commitHash"]:
+        if dry_run:
+             print("Success! (Dry Run Complete)")
+        elif result.get("commitHash"):
             print(f"Success! Pushed commit: {result['commitHash']}")
         else:
             print("Success! (Nothing new to commit)")
             
         if item is not None:
-            markItemUsed(item)
-            print(f"Moved {item['filename']} to the used queue.")
+            if not dry_run:
+                markItemUsed(item)
+                print(f"Moved {item['filename']} to the used queue.")
+            else:
+                print(f"DRY RUN: Left {item['filename']} untouched in the pending queue.")
     else:
         print(f"Failed! Error: {result['error']}", file=sys.stderr)
-
 if __name__ == "__main__":
     main()
 
