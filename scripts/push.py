@@ -387,8 +387,8 @@ def deployToTarget(item, github_token, commit_msg):
     finally:
         # 5. Clean up the evidence (ignore_errors is needed on Windows for .git folders)
         shutil.rmtree(temp_dir, ignore_errors=True)
-        
-sendAlert("🟢 Central Command Systems Check: Webhook routing is operational.")
+
+
 # ==========================================
 # MAIN EXECUTION
 # ==========================================
@@ -580,6 +580,7 @@ def main():
     #             print(f"DRY RUN: Left {item['filename']} untouched in the pending queue.")
     # else:
     #     print(f"Failed! Error: {result['error']}", file=sys.stderr)
+sendAlert("🟢 Central Command Systems Check: Webhook routing is operational.")
 if __name__ == "__main__":
     main()
 
