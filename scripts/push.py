@@ -5,6 +5,7 @@ import subprocess
 import zoneinfo
 import random
 import shutil
+import time
 from datetime import datetime, timedelta
 
 # ==========================================
@@ -295,6 +296,30 @@ def logRun(entry, log_path="logs/run-log.json"):
     with open(log_path, "w") as f:
         json.dump(data, f, indent=2)
 # ==========================================
+# PHASE 4.2 RETRY
+# ==========================================
+def commitAndPushWithRetry(message, max_attempts=3):
+    """Attempts to commit and push, retrying with exponential backoff on failure."""
+    for attempt in range(1, max_attempts + 1):
+        result = commitAndPush(message)
+        
+        # If it worked, return the success result immediately
+        if result["success"]:
+            return result
+            
+        # If it failed but we still have attempts left, wait and retry
+        if attempt < max_attempts:
+            backoff_seconds = (2 ** attempt) * 5
+            print(f"Push failed (Attempt {attempt}/{max_attempts}). Retrying in {backoff_seconds} seconds...", file=sys.stderr)
+            time.sleep(backoff_seconds)
+            
+    # If we get here, all attempts failed
+    return {
+        "success": False, 
+        "commitHash": None, 
+        "error": f"Max retries ({max_attempts}) exceeded. Last error: {result['error']}"
+    }
+# ==========================================
 # MAIN EXECUTION
 # ==========================================
 #phase 4
@@ -321,9 +346,11 @@ def main():
     
     commit_msg = getRandomMessage("messages.json")
     print(f"Selected commit message: '{commit_msg}'")
-    
+    #Commit push with retry 4.2 phase
+    # Attempt to push with backoff retries
+    result = commitAndPushWithRetry(commit_msg)
     # Attempt to push
-    result = commitAndPush(commit_msg)
+    # result = commitAndPush(commit_msg)
     
     # --- NEW PHASE 4 LOGIC: CONSTRUCT THE LOG ENTRY ---
     status = "success" if result["success"] else "failure"
