@@ -332,6 +332,17 @@ def main():
     if not shouldRunNow(config):
         print("Not scheduled to run now. Exiting.")
         return
+    
+    # --- PHASE 4.3: JITTER LOGIC ---
+    # Read jitterMinutes from config, multiply by 60 to get seconds (default to 0)
+    jitter_max_seconds = config.get("jitterMinutes", 0) * 60
+    jitter_applied = 0
+    
+    if jitter_max_seconds > 0:
+        jitter_applied = random.randint(1, jitter_max_seconds)
+        print(f"Jitter activated: Waiting {jitter_applied} seconds to simulate human behavior...")
+        time.sleep(jitter_applied)
+    # -------------------------------
         
     now = getCurrentDateTime()
     items = listPendingItems()
