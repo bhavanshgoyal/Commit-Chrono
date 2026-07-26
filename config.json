@@ -1,8 +1,8 @@
 {
   "startDate": "2026-07-26",
   "spanDays": 10,
-  "times": ["09:00", "12:40", "20:00"],
+  "times": ["09:00", "03:55", "19:45"],
   "timezone": "Asia/Kolkata",
   "jitterMinutes": 1,
-  "dryRun": true
+  "dryRun": false
 }

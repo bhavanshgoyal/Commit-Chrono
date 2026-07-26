@@ -6,8 +6,12 @@ import zoneinfo
 import random
 import shutil
 import time
+import requests
 from datetime import datetime, timedelta
-
+from dotenv import load_dotenv
+import tempfile
+import shutil
+from git import Repo
 # ==========================================
 # PHASE 2: SCHEDULING LOGIC
 # ==========================================
@@ -266,37 +270,48 @@ def getRandomMessage(file_path="messages.json"):
 #===================================================
 #                    Phase -4  refined logs
 #===================================================
-def logRun(entry, log_path="logs/run-log.json"):
-    """Appends a run entry to the JSON log, backing it up if corrupted."""
-    if not os.path.exists(log_path) and os.path.exists(f"../{log_path}"):
-        log_path = f"../{log_path}"
-        
-    # Ensure the logs directory exists
-    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+# --- PHASE 4.3: ALERTS ---
+def sendAlert(text):
+    webhook_url = os.getenv("ALERT_WEBHOOK")
+    if not webhook_url:
+        print("⚠️ No ALERT_WEBHOOK found in .env. Skipping alert.")
+        return
+    
+    try:
+        # "content" is the standard payload key for Discord. 
+        # (Change to "text" if you are using Slack).
+        response = requests.post(webhook_url, json={"content": text})
+        response.raise_for_status()
+    except Exception as e:
+        print(f"⚠️ Failed to send alert: {e}")
+        # The blueprint explicitly states: "do not crash the run over a failed notification"
+
+# --- PHASE 4.1: CORRUPTION RECOVERY LOGGING ---
+def logRun(entry):
+    log_file = os.path.join("logs", "run-log.json")
+    os.makedirs("logs", exist_ok=True)
     
     data = {"runs": []}
     
-    # Try to load existing data safely
-    if os.path.exists(log_path):
+    if os.path.exists(log_file):
         try:
-            with open(log_path, "r") as f:
+            with open(log_file, "r") as f:
                 data = json.load(f)
-                if "runs" not in data or not isinstance(data["runs"], list):
-                    raise ValueError("Invalid schema: missing 'runs' array")
-        except Exception as e:
-            # Corrupted file - back it up as specified in Phase 4.1
-            timestamp_str = datetime.now(zoneinfo.ZoneInfo("UTC")).strftime("%Y%m%d%H%M%S")
-            backup_path = log_path.replace(".json", f".corrupt.{timestamp_str}.json")
-            shutil.copy2(log_path, backup_path)
-            print(f"Log file corrupted. Backed up to {backup_path}", file=sys.stderr)
-            data = {"runs": []} # Start fresh
+        except json.JSONDecodeError:
+            # Corruption detected! Back it up and start fresh.
+            now_str = datetime.now().strftime("%Y%m%d%H%M%S")
+            corrupt_file = os.path.join("logs", f"run-log.corrupt.{now_str}.json")
+            shutil.move(log_file, corrupt_file)
+            print(f"🚨 Corrupt log file detected! Backed up to {corrupt_file}")
             
-    # Append the new entry
+            # Use our new alert system to warn you!
+            sendAlert(f"🚨 Central Command Warning: `run-log.json` was corrupted. Backed up to {corrupt_file} and reset.")
+            data = {"runs": []}
+            
     data["runs"].append(entry)
     
-    # Write back to the file
-    with open(log_path, "w") as f:
-        json.dump(data, f, indent=2)
+    with open(log_file, "w") as f:
+        json.dump(data, f, indent=4)
 # ==========================================
 # PHASE 4.2 RETRY
 # ==========================================
@@ -322,16 +337,82 @@ def commitAndPushWithRetry(message, max_attempts=3):
         "error": f"Max retries ({max_attempts}) exceeded. Last error: {result['error']}"
     }
 # ==========================================
+# Target deployment
+# ==========================================
+def deployToTarget(item, github_token, commit_msg):
+    filename = item["filename"]
+    target_repo = item["targetRepo"] # e.g., "Bhavansh/Movie-API"
+    target_path = item["targetPath"] # e.g., "src/main/resources/data.sql"
+    
+    # 1. Build the secure URL using your token
+    repo_url = f"https://{github_token}@github.com/{target_repo}.git"
+    
+    # 2. Create a temporary invisible folder
+    temp_dir = tempfile.mkdtemp()
+    
+    try:
+        print(f"📥 Cloning {target_repo} into temporary workspace...")
+        # This is GitPython replacing 'git clone'
+        repo = Repo.clone_from(repo_url, temp_dir)
+        
+        # 3. Figure out where the file is and where it needs to go
+        # Assuming your pending files are still in a folder named 'queue/pending'
+        source_file = os.path.join("queue", "pending", filename)
+        dest_file = os.path.join(temp_dir, target_path)
+        
+        # Make sure the destination subfolders actually exist inside the repo
+        os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+        
+        print(f"📦 Copying '{filename}' into the repository...")
+        shutil.copy2(source_file, dest_file)
+        
+        # 4. Object-Oriented Git: Add, Commit, and Push
+        repo.index.add([target_path])
+        repo.index.commit(commit_msg)
+        
+        print("🚀 Pushing payload to remote...")
+        origin = repo.remote(name='origin')
+        origin.push()
+        
+        # Grab the commit hash for your logs
+        commit_hash = repo.head.commit.hexsha
+        print(f"✅ Successfully deployed! Hash: {commit_hash}")
+        
+        return {"success": True, "commitHash": commit_hash}
+        
+    except Exception as e:
+        print(f"🚨 Deployment failed: {str(e)}")
+        return {"success": False, "error": str(e)}
+        
+    finally:
+        # 5. Clean up the evidence (ignore_errors is needed on Windows for .git folders)
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        
+sendAlert("🟢 Central Command Systems Check: Webhook routing is operational.")
+# ==========================================
 # MAIN EXECUTION
 # ==========================================
 #phase 4
 def main():
     print("Starting bot cycle...")
+    # --- PHASE 5.1: AUTHENTICATION ---
+    load_dotenv() # This reads the .env file
+    github_token = os.getenv("GITHUB_TOKEN")
     
-    config = loadConfig("config.json")
-    if not shouldRunNow(config):
-        print("Not scheduled to run now. Exiting.")
+    if not github_token:
+        print("🚨 ERROR: GITHUB_TOKEN not found in .env file. Aborting.")
         return
+    # ---------------------------------
+    # --- PHASE 4.6: EMERGENCY ABORT SWITCH ---
+    if os.path.exists("abort.flag"):
+        print("🚨 ABORT FLAG DETECTED! Canceling the run immediately.")
+        # Optional: You could log this abort to run-log.json here if you want a record of it
+        return
+    # -----------------------------------------
+    config = loadConfig("config.json")
+    # if not shouldRunNow(config):
+    #     print("Not scheduled to run now. Exiting.")
+    #     return
     # Check if Dry Run is active
     dry_run = config.get("dryRun", False)
     if dry_run:
@@ -347,37 +428,42 @@ def main():
         print(f"Jitter activated: Waiting {jitter_applied} seconds to simulate human behavior...")
         time.sleep(jitter_applied)
     # -------------------------------
-        
+    # --- PHASE 5.2: READ THE MANIFEST (queue.json) ---
     now = getCurrentDateTime()
-    items = listPendingItems()
-    
-    item = getNextQueueItem(items, now)
+    try:
+        with open("queue.json", "r") as f:
+            queue = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        print("🚨 queue.json not found or formatted incorrectly.")
+        queue = []
 
-    if item is None:
-        print("Queue is empty or no items eligible right now. Falling back to dummy log.")
-        appendLog()
-        
-    else:
-        print(f"Selected item from queue: {item['filename']}")
-        applyQueueItem(item)
-    
     commit_msg = getRandomMessage("messages.json")
     print(f"Selected commit message: '{commit_msg}'")
-    #Commit push with retry 4.2 phase
-    # Attempt to push with backoff retries
-    result = commitAndPushWithRetry(commit_msg)
-    # Attempt to push
-    # result = commitAndPush(commit_msg)
-    # Construct the log entry
+
+    if len(queue) == 0:
+        print("Queue is empty. Running dummy log on central repo.")
+        item = None
+        appendLog()
+        if not dry_run:
+            result = commitAndPushWithRetry(commit_msg) # Old function keeps the daily streak alive
+        else:
+            result = {"success": True, "commitHash": "dry-run-dummy"}
+    else:
+        item = queue[0]
+        print(f"🚀 Mission Acquired: Moving '{item['filename']}' to '{item['targetRepo']}'")
+        
+        if not dry_run:
+            result = deployToTarget(item, github_token, commit_msg)
+        else:
+            print("🛠️ DRY RUN: Skipping actual deployment.")
+            result = {"success": True, "commitHash": "dry-run-hash"}
+
+    # --- PHASE 4.4: CONSTRUCT THE LOG ENTRY ---
     status = "success" if result["success"] else "failure"
     if dry_run:
         status = "dry-run"
     elif item is None and result["success"]:
         status = "no-op"
-    # --- NEW PHASE 4 LOGIC: CONSTRUCT THE LOG ENTRY ---
-    status = "success" if result["success"] else "failure"
-    if item is None and result["success"]:
-        status = "no-op" # It succeeded but only pushed a dummy log
 
     log_entry = {
         "timestamp": now.isoformat(),
@@ -385,31 +471,115 @@ def main():
         "commitHash": result.get("commitHash"),
         "item": item["filename"] if item else None,
         "message": commit_msg,
-        "jitterSeconds": 0, # We will add jitter logic later
+        "jitterSeconds": jitter_applied, 
         "error": result.get("error")
     }
     
-    # Write the receipt
     logRun(log_entry)
     print("Run log updated successfully.")
-    # --------------------------------------------------
-    
-    if result["success"]:
-        if dry_run:
-             print("Success! (Dry Run Complete)")
-        elif result.get("commitHash"):
-            print(f"Success! Pushed commit: {result['commitHash']}")
-        else:
-            print("Success! (Nothing new to commit)")
+
+    # --- PHASE 5.3: CLEAN UP THE QUEUE ---
+    if result["success"] and item is not None and not dry_run:
+        # 1. Move the physical file so we have a backup
+        source_file = os.path.join("queue", "pending", item["filename"])
+        dest_file = os.path.join("queue", "used", item["filename"])
+        if os.path.exists(source_file):
+            shutil.move(source_file, dest_file)
+            print(f"📂 Backed up {item['filename']} to the used folder.")
             
-        if item is not None:
-            if not dry_run:
-                markItemUsed(item)
-                print(f"Moved {item['filename']} to the used queue.")
-            else:
-                print(f"DRY RUN: Left {item['filename']} untouched in the pending queue.")
-    else:
-        print(f"Failed! Error: {result['error']}", file=sys.stderr)
+        # 2. Cross the task off the JSON map
+        queue.pop(0)
+        with open("queue.json", "w") as f:
+            json.dump(queue, f, indent=4)
+        print("✅ queue.json updated. Task marked as complete.")
+        
+    elif not result["success"]:
+        print(f"Failed! Error: {result.get('error')}", file=sys.stderr)
+    # # --- PHASE 5.2: READ THE MANIFEST (queue.json) ---
+    # now = getCurrentDateTime()
+    # try:
+    #     with open("queue.json", "r") as f:
+    #         queue = json.load(f)
+    # except (FileNotFoundError, json.JSONDecodeError):
+    #     print("🚨 queue.json not found or formatted incorrectly. Falling back to dummy log.")
+    #     queue = []
+
+    # if len(queue) == 0:
+    #     print("Queue is empty. Nothing to push right now! Running dummy log.")
+    #     item = None
+    #     appendLog()
+    # else:
+    #     # Grab the first task in the list
+    #     item = queue[0]
+    #     filename = item["filename"]
+    #     target_repo = item["targetRepo"]
+    #     target_path = item["targetPath"]
+    #     print(f"🚀 Mission Acquired: Moving '{filename}' to '{target_repo}' at '{target_path}'")
+        
+    #     # Note: We are temporarily skipping 'applyQueueItem' because Phase 5 
+    #     # requires a totally new deployment function to handle external repos.    
+    # # now = getCurrentDateTime()
+    # # items = listPendingItems()
+    
+    # # item = getNextQueueItem(items, now)
+
+    # # if item is None:
+    # #     print("Queue is empty or no items eligible right now. Falling back to dummy log.")
+    # #     appendLog()
+        
+    # # else:
+    # #     print(f"Selected item from queue: {item['filename']}")
+    # #     applyQueueItem(item)
+    
+    # commit_msg = getRandomMessage("messages.json")
+    # print(f"Selected commit message: '{commit_msg}'")
+    # #Commit push with retry 4.2 phase
+    # # Attempt to push with backoff retries
+    # result = commitAndPushWithRetry(commit_msg)
+    # # Attempt to push
+    # # result = commitAndPush(commit_msg)
+    # # Construct the log entry
+    # status = "success" if result["success"] else "failure"
+    # if dry_run:
+    #     status = "dry-run"
+    # elif item is None and result["success"]:
+    #     status = "no-op"
+    # # --- NEW PHASE 4 LOGIC: CONSTRUCT THE LOG ENTRY ---
+    # status = "success" if result["success"] else "failure"
+    # if item is None and result["success"]:
+    #     status = "no-op" # It succeeded but only pushed a dummy log
+
+    # log_entry = {
+    #     "timestamp": now.isoformat(),
+    #     "status": status,
+    #     "commitHash": result.get("commitHash"),
+    #     "item": item["filename"] if item else None,
+    #     "message": commit_msg,
+    #     "jitterSeconds": 0, # We will add jitter logic later
+    #     "error": result.get("error")
+    # }
+    
+    # # Write the receipt
+    # logRun(log_entry)
+    # print("Run log updated successfully.")
+    # # --------------------------------------------------
+    
+    # if result["success"]:
+    #     if dry_run:
+    #          print("Success! (Dry Run Complete)")
+    #     elif result.get("commitHash"):
+    #         print(f"Success! Pushed commit: {result['commitHash']}")
+    #     else:
+    #         print("Success! (Nothing new to commit)")
+            
+    #     if item is not None:
+    #         if not dry_run:
+    #             markItemUsed(item)
+    #             print(f"Moved {item['filename']} to the used queue.")
+    #         else:
+    #             print(f"DRY RUN: Left {item['filename']} untouched in the pending queue.")
+    # else:
+    #     print(f"Failed! Error: {result['error']}", file=sys.stderr)
 if __name__ == "__main__":
     main()
 
@@ -493,5 +663,5 @@ if __name__ == "__main__":
 #     else:
 #         print(f"Failed! Error: {result['error']}", file=sys.stderr)
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
