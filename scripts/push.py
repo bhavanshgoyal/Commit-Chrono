@@ -223,7 +223,9 @@ def commitAndPush(message):
     commit_result = runGitCommand(["commit", "-m", message])
     if commit_result["exitCode"] != 0:
         if "nothing to commit" in commit_result["stdout"] or "nothing to commit" in commit_result["stderr"]:
-            return {"success": True, "commitHash": None, "error": None}
+            # FIX: Do not return early here! We just pass and let it proceed to the push step
+            # to catch any lingering commits that failed to push previously.
+            print("No new files to commit, proceeding to push existing changes...")
         else:
             return {"success": False, "commitHash": None, "error": f"Git Commit Failed: {commit_result['stderr']}"}
 
