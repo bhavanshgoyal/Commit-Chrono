@@ -397,7 +397,7 @@ def main():
     print("Starting bot cycle...")
     # --- PHASE 5.1: AUTHENTICATION ---
     load_dotenv() # This reads the .env file
-    github_token = os.getenv("GITHUB_TOKEN")
+    github_token = os.getenv("GH_PAT")
     
     if not github_token:
         print("🚨 ERROR: GITHUB_TOKEN not found in .env file. Aborting.")
