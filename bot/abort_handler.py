@@ -134,7 +134,7 @@ def resolveReschedule(item: dict, resolution_file_path: str, all_items: list) ->
     target = resolution.get("target")
     now    = getCurrentDateTime()
 
-    print(f"[resolve] '{item['filename']}' → choice='{choice}' target='{target}'")
+    print(f"[resolve] '{item['filename']}' -> choice='{choice}' target='{target}'")
 
     if choice == "retry-next-cycle":
         pass  # no metadata change
@@ -177,4 +177,4 @@ def resolveReschedule(item: dict, resolution_file_path: str, all_items: list) ->
         "choice":  choice,
         "target":  target,
     })
-    print(f"✅ Reschedule resolved: '{item['filename']}' via '{choice}'")
+    print(f"[OK] Reschedule resolved: '{item['filename']}' via '{choice}'")

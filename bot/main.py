@@ -143,7 +143,7 @@ def runOneCommitCycle(schedule: dict, messages_pool: dict) -> None:
     msg  = pickCommitMessage(messages_pool, item["meta"].get("type", "general"))
     mode = schedule.get("mode", "self")
 
-    print(f"[{schedule['id']}] → '{item['filename']}' | mode={mode} | msg='{msg}'")
+    print(f"[{schedule['id']}] -> '{item['filename']}' | mode={mode} | msg='{msg}'")
 
     # 5. Execute push
     if mode == "self":
@@ -208,9 +208,9 @@ def main() -> None:
 
     for schedule in schedules:
         schedule_id = schedule.get("id", "unknown")
-        print(f"\n{'─' * 45}")
+        print(f"\n{'-' * 45}")
         print(f"  Schedule: {schedule_id}")
-        print(f"{'─' * 45}")
+        print(f"{'-' * 45}")
 
         try:
             # ── T-minus-N notification (runs regardless of shouldRunNow) ──
@@ -286,7 +286,7 @@ def main() -> None:
                 print(f"[{schedule_id}] Light intensity rolled 0 commits. Skipping today.")
                 continue
 
-            print(f"[{schedule_id}] Intensity: {level} → {count} commit(s) today")
+            print(f"[{schedule_id}] Intensity: {level} -> {count} commit(s) today")
 
             # ── Commit cycles ─────────────────────────────────────────────
             for cycle_num in range(1, count + 1):

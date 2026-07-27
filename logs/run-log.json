@@ -225,6 +225,26 @@
             "commitHash": null,
             "error": "Conflict detected: remote 'main' moved ahead during this run. Not pushing to avoid overwrite. Review and re-run manually.",
             "timestamp": "2026-07-27T07:01:55.304466+00:00"
+        },
+        {
+            "scheduleId": "self-log",
+            "status": "success",
+            "item": "tescode4",
+            "message": "housekeeping",
+            "jitterSeconds": 2015,
+            "commitHash": null,
+            "error": null,
+            "timestamp": "2026-07-27T07:04:55.972954+00:00"
+        },
+        {
+            "scheduleId": "movie-api",
+            "status": "success",
+            "item": "test_api_update.txt",
+            "message": "housekeeping",
+            "jitterSeconds": 162,
+            "commitHash": "ed663003a1750297271140dfe37e585777c5690f",
+            "error": null,
+            "timestamp": "2026-07-27T07:17:12.023958+00:00"
         }
     ]
 }
