@@ -1,1 +1,22 @@
+# Secrets and local env
 .env
+pat token
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+*.egg
+
+# Temp / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

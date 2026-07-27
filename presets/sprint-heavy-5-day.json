@@ -1,0 +1,16 @@
+{
+  "comment": "Partial schedule — fill in id, repo, branch before use",
+  "mode": "self",
+  "targetPath": "src/",
+  "spanDays": 5,
+  "times": ["09:00", "14:00", "19:00"],
+  "timezone": "Asia/Kolkata",
+  "jitterMinutes": 20,
+  "notifyBeforeMinutes": 10,
+  "abortBehavior": "skip-to-next",
+  "dryRun": false,
+  "skipDates": [],
+  "intensity": {
+    "_note": "Fill in dates as YYYY-MM-DD: heavy on all 5 days for a sprint"
+  }
+}

@@ -1,10 +1,13 @@
 {
-  "priority": "normal",
-  "addedAt": "2026-07-25T23:20:19.602018+00:00",
-  "notEligibleUntil": null,
-  "dependsOn": null,
-  "held": false,
-  "lastSkippedAt": null,
-  "type": "feature",
-  "usedAt": "2026-07-25T23:30:52.084940+00:00"
+    "priority":  "normal",
+    "addedAt":  "2026-07-25T23:20:19.602018+00:00",
+    "notEligibleUntil":  null,
+    "dependsOn":  null,
+    "held":  false,
+    "lastSkippedAt":  null,
+    "type":  "feature",
+    "usedAt":  "2026-07-25T23:30:52.084940+00:00",
+    "scheduleId":  "self-log",
+    "targetRepo":  null,
+    "targetPath":  null
 }

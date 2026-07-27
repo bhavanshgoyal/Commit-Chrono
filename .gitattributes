@@ -1,0 +1,7 @@
+# Normalise line endings: LF in repo, CRLF on Windows checkout
+* text=auto
+*.py text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+*.txt text eol=lf

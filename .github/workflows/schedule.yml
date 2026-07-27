@@ -2,11 +2,11 @@ name: Scheduled Commit Bot
 
 on:
   schedule:
-    - cron: "*/15 * * * *"   # daily at 09:00 UTC — placeholder, replaced in Phase 2
-  workflow_dispatch: {}     # enables the manual "Run workflow" button
+    - cron: "*/15 * * * *"   # fires every 15 min; shouldRunNow() decides whether to act
+  workflow_dispatch: {}       # enables the manual "Run workflow" button in the Actions tab
 
 permissions:
-  contents: write            # required for the built-in GITHUB_TOKEN if ever used as fallback
+  contents: write             # allows the built-in GITHUB_TOKEN to push (safety net)
 
 jobs:
   run-bot:
@@ -15,20 +15,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GH_PAT }}   # use PAT so subsequent git push is authenticated
-          fetch-depth: 0                  # full history, needed later for conflict detection (Phase 4)
+          token: ${{ secrets.GH_PAT }}   # PAT for authenticated push
+          fetch-depth: 0                  # full history — needed for conflict detection
 
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
       - name: Configure git identity
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Run bot script
+      - name: Run git-drip bot
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
-        run: python scripts/push.py
+          ALERT_WEBHOOK: ${{ secrets.ALERT_WEBHOOK }}
+        run: python -m bot.main

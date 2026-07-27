@@ -1,0 +1,16 @@
+{
+  "comment": "Partial schedule — fill in id, repo, branch, startDate before use",
+  "mode": "self",
+  "targetPath": "src/",
+  "spanDays": 20,
+  "times": ["10:00", "16:00"],
+  "timezone": "Asia/Kolkata",
+  "jitterMinutes": 25,
+  "notifyBeforeMinutes": 15,
+  "abortBehavior": "auto-retry",
+  "dryRun": false,
+  "skipDates": [],
+  "intensity": {
+    "_note": "light → normal → normal → heavy → light → normal → heavy → normal pattern repeating. Fill in actual dates."
+  }
+}

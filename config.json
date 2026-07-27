@@ -1,8 +1,21 @@
 {
-  "startDate": "2026-07-26",
-  "spanDays": 10,
-  "times": ["09:00", "03:55", "19:45"],
-  "timezone": "Asia/Kolkata",
-  "jitterMinutes": 1,
-  "dryRun": false
+  "schedules": [
+    {
+      "id": "self-log",
+      "repo": "bhavanshgoyal/github-bot-test",
+      "branch": "main",
+      "mode": "self",
+      "targetPath": "src/",
+      "startDate": "2026-07-26",
+      "spanDays": 10,
+      "times": ["09:00", "03:55", "19:45"],
+      "timezone": "Asia/Kolkata",
+      "jitterMinutes": 1,
+      "notifyBeforeMinutes": 10,
+      "abortBehavior": "auto-retry",
+      "dryRun": false,
+      "skipDates": [],
+      "intensity": {}
+    }
+  ]
 }
