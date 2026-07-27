@@ -21,24 +21,37 @@ from bot.utils import getCurrentDateTime, urlSafe
 PENDING_PUSH_LOG = os.path.join("logs", "pending-push.json")
 
 
-# ── Discord webhook ──────────────────────────────────────────────────────────
+# ── Discord / Ntfy webhooks ──────────────────────────────────────────────────
+
+def _getConfigSettings() -> dict:
+    try:
+        with open("config.json", "r") as f:
+            return json.load(f).get("settings", {})
+    except Exception:
+        return {}
 
 def sendAlert(text: str, webhook_url: str | None = None) -> None:
     """
-    POSTs a message to the configured Discord webhook.
-    If the webhook URL is missing or the POST fails, logs a warning
-    but does NOT crash the run — a failed notification is never fatal.
+    POSTs a message to the configured alert provider (Discord or Ntfy).
     """
-    url = webhook_url or os.getenv("ALERT_WEBHOOK")
+    settings = _getConfigSettings()
+    provider = settings.get("alertProvider", "discord")
+    url = webhook_url or settings.get("webhookUrl") or os.getenv("ALERT_WEBHOOK")
+    
     if not url:
-        print("⚠️  No ALERT_WEBHOOK set. Skipping alert.")
+        print("⚠️  No webhook URL set in config or ALERT_WEBHOOK. Skipping alert.")
         return
+
     try:
-        # "content" is the standard Discord webhook payload key.
-        # Switch to "text" here if you ever add Slack support.
-        response = requests.post(url, json={"content": text}, timeout=10)
+        if provider == "ntfy":
+            # Ntfy uses raw text body to the topic URL
+            response = requests.post(url, data=text.encode('utf-8'), timeout=10)
+        else:
+            # Discord uses JSON payload
+            response = requests.post(url, json={"content": text}, timeout=10)
+            
         response.raise_for_status()
-        print(f"📣 Alert sent: {text[:100]}{'...' if len(text) > 100 else ''}")
+        print(f"📣 Alert sent ({provider}): {text[:100]}{'...' if len(text) > 100 else ''}")
     except Exception as e:
         print(f"⚠️  Alert failed (non-fatal): {e}")
 

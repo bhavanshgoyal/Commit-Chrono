@@ -27,9 +27,19 @@ pub struct Schedule {
     pub intensity: serde_json::Value,
 }
 
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Settings {
+    pub alert_provider: Option<String>,
+    pub webhook_url: Option<String>,
+    pub gh_pat: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
     pub schedules: Vec<Schedule>,
+    #[serde(default)]
+    pub settings: Option<Settings>,
 }
 
 #[derive(Serialize, Debug)]
@@ -38,6 +48,21 @@ pub struct QueueItem {
     pub name: String,
     pub file_type: String,
     pub status: String,
+    pub depends_on: Option<String>,
+    pub not_eligible_until: Option<String>,
+    pub priority: Option<String>,
+    pub held: Option<bool>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct ItemMeta {
+    pub depends_on: Option<String>,
+    pub not_eligible_until: Option<String>,
+    pub priority: Option<String>,
+    pub held: Option<bool>,
+    #[serde(rename = "type")]
+    pub item_type: Option<String>,
 }
 
 #[derive(Serialize, Debug)]
@@ -127,14 +152,36 @@ fn read_queue() -> Result<Vec<QueueItem>, String> {
         if let Ok(entries) = fs::read_dir(&pending_dir) {
             for entry in entries.flatten() {
                 let name = entry.file_name().to_string_lossy().to_string();
-                // Skip .meta.json sidecar files
-                if name.ends_with(".meta.json") {
+                if name.ends_with(".meta.json") || name.ends_with(".flag") {
                     continue;
                 }
+
+                // Try read meta sidecar
+                let meta_path = pending_dir.join(format!("{}.meta.json", name));
+                let mut depends_on = None;
+                let mut not_eligible_until = None;
+                let mut priority = None;
+                let mut held = None;
+                let mut file_type = "feature".to_string();
+
+                if let Ok(content) = fs::read_to_string(&meta_path) {
+                    if let Ok(meta) = serde_json::from_str::<ItemMeta>(&content) {
+                        depends_on = meta.depends_on;
+                        not_eligible_until = meta.not_eligible_until;
+                        priority = meta.priority;
+                        held = meta.held;
+                        if let Some(t) = meta.item_type { file_type = t; }
+                    }
+                }
+
                 items.push(QueueItem {
                     name,
-                    file_type: "feature".to_string(),
+                    file_type,
                     status: "pending".to_string(),
+                    depends_on,
+                    not_eligible_until,
+                    priority,
+                    held,
                 });
             }
         }
@@ -153,6 +200,10 @@ fn read_queue() -> Result<Vec<QueueItem>, String> {
                     name,
                     file_type: "feature".to_string(),
                     status: "synced".to_string(),
+                    depends_on: None,
+                    not_eligible_until: None,
+                    priority: None,
+                    held: None,
                 });
             }
         }
@@ -311,6 +362,66 @@ fn sync_to_github() -> Result<CommandResult, String> {
 }
 
 // ═══════════════════════════════════════════
+// COMMAND: Update Item Meta
+// ═══════════════════════════════════════════
+
+#[tauri::command]
+fn update_item_meta(file_name: String, depends_on: Option<String>, not_eligible_until: Option<String>, priority: Option<String>, held: Option<bool>) -> Result<CommandResult, String> {
+    let root = get_project_root()?;
+    let meta_path = root.join("queue").join("pending").join(format!("{}.meta.json", file_name));
+
+    if !meta_path.exists() {
+        return Err(format!("Meta file not found for {}", file_name));
+    }
+
+    let content = fs::read_to_string(&meta_path).map_err(|e| e.to_string())?;
+    let mut meta: serde_json::Value = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+
+    if let Some(obj) = meta.as_object_mut() {
+        obj.insert("dependsOn".to_string(), match depends_on { Some(v) if !v.is_empty() => serde_json::json!(v), _ => serde_json::Value::Null });
+        obj.insert("notEligibleUntil".to_string(), match not_eligible_until { Some(v) if !v.is_empty() => serde_json::json!(v), _ => serde_json::Value::Null });
+        if let Some(p) = priority { obj.insert("priority".to_string(), serde_json::json!(p)); }
+        if let Some(h) = held { obj.insert("held".to_string(), serde_json::json!(h)); }
+    }
+
+    fs::write(&meta_path, serde_json::to_string_pretty(&meta).unwrap()).map_err(|e| e.to_string())?;
+    Ok(CommandResult { success: true, message: "Item updated.".to_string() })
+}
+
+// ═══════════════════════════════════════════
+// COMMAND: Read Pending Pushes (T-n alerts)
+// ═══════════════════════════════════════════
+
+#[tauri::command]
+fn read_pending_pushes() -> Result<serde_json::Value, String> {
+    let root = get_project_root()?;
+    let log_path = root.join("logs").join("pending-push.json");
+    if !log_path.exists() {
+        return Ok(serde_json::json!({ "armedSlots": [] }));
+    }
+    let content = fs::read_to_string(&log_path).unwrap_or_else(|_| "{\"armedSlots\":[]}".to_string());
+    let data: serde_json::Value = serde_json::from_str(&content).unwrap_or(serde_json::json!({ "armedSlots": [] }));
+    Ok(data)
+}
+
+// ═══════════════════════════════════════════
+// COMMAND: Abort Push
+// ═══════════════════════════════════════════
+
+#[tauri::command]
+fn abort_push(schedule_id: String, slot_id: String) -> Result<CommandResult, String> {
+    let root = get_project_root()?;
+    let pending_dir = root.join("queue").join("pending");
+    fs::create_dir_all(&pending_dir).unwrap();
+
+    let safe_id = slot_id.replace(":", "-").replace(".", "-");
+    let flag_path = pending_dir.join(format!("abort-{}-{}.flag", schedule_id, safe_id));
+    fs::write(&flag_path, "").map_err(|e| e.to_string())?;
+
+    Ok(CommandResult { success: true, message: "Abort flag created.".to_string() })
+}
+
+// ═══════════════════════════════════════════
 // COMMAND: Get project root path (for UI display)
 // ═══════════════════════════════════════════
 
@@ -335,7 +446,10 @@ pub fn run() {
             add_to_queue,
             remove_from_queue,
             sync_to_github,
-            get_project_path
+            get_project_path,
+            update_item_meta,
+            read_pending_pushes,
+            abort_push
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

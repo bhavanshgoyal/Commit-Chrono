@@ -360,7 +360,7 @@ function WelcomePage({ onGetStarted }) {
 /* ═══════════════════════════════════════════
    PAGE: Dashboard
    ═══════════════════════════════════════════ */
-function DashboardPage({ schedules, activeSchedule, setActiveSchedule, queue, onRefreshQueue, onNavigate, activePreset, skipDates }) {
+function DashboardPage({ schedules, activeSchedule, setActiveSchedule, queue, onRefreshQueue, onNavigate, activePreset, skipDates, onSelectQueueItem }) {
   const [isDragging, setIsDragging] = useState(false);
   const [dropMessage, setDropMessage] = useState(null);
   const [latestDrop, setLatestDrop] = useState(null);
@@ -411,8 +411,8 @@ function DashboardPage({ schedules, activeSchedule, setActiveSchedule, queue, on
       <div className="main-content">
 
         {/* LEFT SIDEBAR */}
-        <aside className="sidebar sidebar-left" aria-label="Schedules and timeline">
-          <div className="glass-panel" style={{flex: 1}}>
+        <aside className="sidebar sidebar-left" aria-label="Schedules and Heatmap">
+          <div className="glass-panel" style={{flex: 1, overflowY: 'auto', minHeight: '200px'}}>
             <h2 className="panel-title"><Zap size={18} aria-hidden="true" /> Schedules</h2>
             <div className="schedule-list" role="listbox">
               {schedules.map(s => (
@@ -432,20 +432,14 @@ function DashboardPage({ schedules, activeSchedule, setActiveSchedule, queue, on
             </div>
           </div>
 
-          {/* Commit Timeline */}
-          <div className="glass-panel">
-            <CommitTimeline />
-          </div>
-
-          {/* AI Observer Widget */}
-          <div className="glass-panel" style={{flex: 1}}>
-            <AIAssistantWidget latestDrop={latestDrop} />
+          <div className="glass-panel" style={{flexShrink: 0, marginTop: '16px'}}>
+            <HeatmapPreview preset={activePreset} skipDates={skipDates} />
           </div>
         </aside>
 
         {/* CENTER */}
-        <section className="center-content" aria-label="Drop zone and heatmap">
-          <div className="glass-panel drop-zone-container">
+        <section className="center-content" aria-label="Drop zone and Insights">
+          <div className="glass-panel drop-zone-container" style={{flex: 1, minHeight: '200px'}}>
             <h2 className="panel-title">
               Add to Queue {currentSchedule && <span className="panel-title-accent">&mdash; {currentSchedule.id}</span>}
             </h2>
@@ -464,15 +458,19 @@ function DashboardPage({ schedules, activeSchedule, setActiveSchedule, queue, on
             </div>
           </div>
 
-          {/* Heatmap Preview */}
-          <div className="glass-panel" style={{marginTop: '16px'}}>
-            <HeatmapPreview preset={activePreset} skipDates={skipDates} />
+          <div className="center-insights-row" style={{display: 'flex', gap: '16px', height: '220px', flexShrink: 0, marginTop: '16px'}}>
+            <div className="glass-panel" style={{flex: 1, overflowY: 'auto'}}>
+              <CommitTimeline />
+            </div>
+            <div className="glass-panel" style={{flex: 1, overflowY: 'auto'}}>
+              <AIAssistantWidget latestDrop={latestDrop} />
+            </div>
           </div>
         </section>
 
         {/* RIGHT SIDEBAR */}
-        <aside className="sidebar sidebar-right" aria-label="Pending queue">
-          <div className="glass-panel" style={{flex: 1}}>
+        <aside className="sidebar sidebar-right" aria-label="Pending queue and Novelty">
+          <div className="glass-panel" style={{flex: 1, overflowY: 'auto', minHeight: '200px'}}>
             <h2 className="panel-title">
               <FileCode2 size={18} /> Queue <span className="queue-count">{pendingItems.length} pending</span>
             </h2>
@@ -483,10 +481,12 @@ function DashboardPage({ schedules, activeSchedule, setActiveSchedule, queue, on
             ) : (
               <div className="queue-list" role="list">
                 {pendingItems.map((q, idx) => (
-                  <div key={`p-${idx}`} className="queue-item" role="listitem">
+                  <div key={`p-${idx}`} className="queue-item" role="listitem" onClick={() => onSelectQueueItem(q)} style={{cursor: 'pointer'}}>
                     <span className="status-dot dot-pending"></span>
-                    <span className="queue-name">{q.name}</span>
-                    <div className="reorder-btns">
+                    <span className="queue-name" style={{flex:1}}>{q.name}</span>
+                    {q.depends_on && <span className="queue-type" style={{color:'var(--warning)'}}>wait</span>}
+                    {q.held && <span className="queue-type" style={{color:'var(--danger)'}}>held</span>}
+                    <div className="reorder-btns" onClick={e => e.stopPropagation()}>
                       <button className="reorder-btn" onClick={() => moveItem(idx, 'up')} aria-label="Move up" disabled={idx === 0}><ArrowUp size={12} /></button>
                       <button className="reorder-btn" onClick={() => moveItem(idx, 'down')} aria-label="Move down" disabled={idx === pendingItems.length - 1}><ArrowDown size={12} /></button>
                     </div>
@@ -502,6 +502,26 @@ function DashboardPage({ schedules, activeSchedule, setActiveSchedule, queue, on
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="glass-panel" style={{flexShrink: 0, marginTop: '16px'}}>
+            <h2 className="panel-title" style={{marginBottom: '12px'}}><Sparkles size={18} /> Chrono Mods</h2>
+            <div className="novelty-toggles">
+              <label className="toggle-row">
+                <div className="toggle-info">
+                  <span className="toggle-label">Time Machine Mode</span>
+                  <span className="toggle-desc">Backdate commits in history</span>
+                </div>
+                <input type="checkbox" className="switch-input" />
+              </label>
+              <label className="toggle-row">
+                <div className="toggle-info">
+                  <span className="toggle-label">Ghost Coder</span>
+                  <span className="toggle-desc">Force pushes at 3 AM local</span>
+                </div>
+                <input type="checkbox" className="switch-input" />
+              </label>
+            </div>
           </div>
         </aside>
       </div>
@@ -575,7 +595,9 @@ function AIPage({ onNavigate }) {
 /* ═══════════════════════════════════════════
    PAGE: Settings
    ═══════════════════════════════════════════ */
-function SettingsPage({ onNavigate }) {
+function SettingsPage({ onNavigate, settings, setSettings, onSaveSettings }) {
+  const handleChange = (k, v) => setSettings(prev => ({ ...prev, [k]: v }));
+
   return (
     <div className="settings-page" role="main" aria-label="Settings">
       <div className="settings-content">
@@ -588,25 +610,107 @@ function SettingsPage({ onNavigate }) {
             <h3 className="settings-label">GitHub Authentication</h3>
             <div className="settings-row">
               <label htmlFor="gh-pat">Personal Access Token (GH_PAT)</label>
-              <input id="gh-pat" type="password" placeholder="ghp_xxxxxxxxxxxx" className="input-field" />
+              <input id="gh-pat" type="password" placeholder="ghp_xxxxxxxxxxxx" className="input-field" value={settings.ghPat || ''} onChange={e => handleChange('ghPat', e.target.value)} />
             </div>
           </div>
           <div className="settings-group">
-            <h3 className="settings-label">Discord Alerts</h3>
+            <h3 className="settings-label">Alert Notifications</h3>
+            <div className="settings-row" style={{marginBottom:'8px'}}>
+              <label htmlFor="alert-provider">Provider</label>
+              <select id="alert-provider" className="input-field" style={{appearance:'auto', background:'rgba(255,255,255,0.05)'}} value={settings.alertProvider || 'discord'} onChange={e => handleChange('alertProvider', e.target.value)}>
+                <option value="discord">Discord Webhook</option>
+                <option value="ntfy">Ntfy.sh</option>
+              </select>
+            </div>
             <div className="settings-row">
-              <label htmlFor="webhook-url">Webhook URL</label>
-              <input id="webhook-url" type="url" placeholder="https://discord.com/api/webhooks/..." className="input-field" />
+              <label htmlFor="webhook-url">Target URL / Topic</label>
+              <input id="webhook-url" type="url" placeholder="https://discord.com/... OR ntfy.sh/topic" className="input-field" value={settings.webhookUrl || ''} onChange={e => handleChange('webhookUrl', e.target.value)} />
             </div>
           </div>
           <div className="settings-group">
-            <h3 className="settings-label">Commit Messages</h3>
+            <h3 className="settings-label">Commit Messages (Summary)</h3>
             <div className="settings-row">
-              <label htmlFor="commit-pool">Message Pool (one per line)</label>
-              <textarea id="commit-pool" rows={4} className="input-field" defaultValue={"tweak\nhousekeeping\ncleanup\nrefactor\nminor update"} />
+              <label htmlFor="commit-pool">Message Pool (one per line) - AI will fall back to these if needed</label>
+              <textarea id="commit-pool" rows={4} className="input-field" placeholder="tweak\nhousekeeping\ncleanup\nrefactor\nminor update" value={settings.commitPool || ''} onChange={e => handleChange('commitPool', e.target.value)} />
             </div>
           </div>
-          <button className="btn btn-primary" style={{marginTop:'16px',width:'100%',justifyContent:'center'}}><Check size={16} /> Save Settings</button>
+          <button className="btn btn-primary" style={{marginTop:'16px',width:'100%',justifyContent:'center'}} onClick={onSaveSettings}><Check size={16} /> Save Settings</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════
+   COMPONENT: Queue Item Modal
+   ═══════════════════════════════════════════ */
+function QueueItemModal({ item, allItems, onClose, onRefreshQueue }) {
+  if (!item) return null;
+  const [dependsOn, setDependsOn] = useState(item.dependsOn || '');
+  const [notEligibleUntil, setNotEligibleUntil] = useState(item.notEligibleUntil || '');
+  const [priority, setPriority] = useState(item.priority || 'normal');
+  const [held, setHeld] = useState(item.held || false);
+
+  const handleSave = async () => {
+    try {
+      await invoke('update_item_meta', { 
+        fileName: item.name, 
+        dependsOn: dependsOn, 
+        notEligibleUntil: notEligibleUntil, 
+        priority: priority, 
+        held: held 
+      });
+      onRefreshQueue();
+    } catch (err) { console.error(err); }
+    onClose();
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose} role="dialog">
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{maxWidth: '480px'}}>
+        <div className="modal-header">
+          <h2>Item Details: {item.name}</h2>
+          <button className="close-btn" onClick={onClose} aria-label="Close"><X size={22} /></button>
+        </div>
+        
+        <div className="modal-section">
+          <div className="form-row" style={{marginBottom:'12px'}}>
+            <div className="form-group" style={{flex:1}}>
+              <label>Priority</label>
+              <select value={priority} onChange={e => setPriority(e.target.value)} className="input-field" style={{appearance:'auto', background:'rgba(255,255,255,0.05)'}}>
+                <option value="high">High</option>
+                <option value="normal">Normal</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="form-group" style={{marginBottom:'12px'}}>
+            <label>Must Wait For (Dependency)</label>
+            <select value={dependsOn} onChange={e => setDependsOn(e.target.value)} className="input-field" style={{appearance:'auto', background:'rgba(255,255,255,0.05)'}}>
+              <option value="">-- None --</option>
+              {allItems.filter(i => i.name !== item.name && i.status === 'pending').map(i => (
+                <option key={i.name} value={i.name}>{i.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group" style={{marginBottom:'12px'}}>
+            <label>Do Not Push Before (Date)</label>
+            <input type="datetime-local" value={notEligibleUntil} onChange={e => setNotEligibleUntil(e.target.value)} className="input-field" />
+          </div>
+
+          <label className="toggle-row" style={{background: 'rgba(255,255,255,0.02)', padding: '12px', border: '1px solid var(--border-subtle)'}}>
+            <div className="toggle-info">
+              <span className="toggle-label" style={{color: held ? 'var(--danger)' : 'var(--text-primary)'}}>Hold (Suspend Push)</span>
+            </div>
+            <input type="checkbox" className="switch-input" checked={held} onChange={e => setHeld(e.target.checked)} />
+          </label>
+        </div>
+
+        <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',marginTop:'16px'}} onClick={handleSave}>
+          <Check size={16} /> Save Item Meta
+        </button>
       </div>
     </div>
   );
@@ -621,6 +725,9 @@ function ConfigModal({ isOpen, onClose, activeSchedule, activePreset, setActiveP
   const currentSchedule = schedules.find(s => s.id === activeSchedule);
   const [timeStart, setTimeStart] = useState(currentSchedule?.times?.[0] || '09:00');
   const [jitter, setJitter] = useState(currentSchedule?.jitterMinutes || 120);
+  const [abortBehavior, setAbortBehavior] = useState(currentSchedule?.abortBehavior || 'auto-retry');
+  const [dryRun, setDryRun] = useState(currentSchedule?.dryRun || false);
+  const [notifyBefore, setNotifyBefore] = useState(currentSchedule?.notifyBeforeMinutes || 10);
 
   const presets = [
     { id: 'organic', title: 'The Organic Human', icon: <Leaf size={20} />, desc: 'Consistent pushes with 10% skip days.' },
@@ -634,6 +741,9 @@ function ConfigModal({ isOpen, onClose, activeSchedule, activePreset, setActiveP
       currentSchedule.times = [timeStart];
       currentSchedule.jitterMinutes = parseInt(jitter) || 120;
       currentSchedule.skipDates = skipDates;
+      currentSchedule.abortBehavior = abortBehavior;
+      currentSchedule.dryRun = dryRun;
+      currentSchedule.notifyBeforeMinutes = parseInt(notifyBefore) || 10;
       try { await invoke('write_config', { config: { schedules } }); } catch (err) { console.error(err); }
     }
     onClose();
@@ -687,7 +797,34 @@ function ConfigModal({ isOpen, onClose, activeSchedule, activePreset, setActiveP
           <HeatmapPreview preset={activePreset} skipDates={skipDates} />
         </div>
 
-        <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',marginTop:'8px'}} onClick={handleSave}>
+        <div className="modal-section" style={{borderTop: '1px solid var(--border-subtle)', paddingTop: '16px', marginTop: '8px'}}>
+          <h3 className="modal-section-title"><Settings size={16} /> Advanced Engine Rules</h3>
+          
+          <div className="form-row" style={{marginBottom: '12px'}}>
+            <div className="form-group" style={{flex: 2}}>
+              <label htmlFor="cfg-abort">Push Failure Behavior</label>
+              <select id="cfg-abort" value={abortBehavior} onChange={e => setAbortBehavior(e.target.value)} className="input-field" style={{appearance: 'auto', background: 'rgba(255,255,255,0.05)'}}>
+                <option value="auto-retry">Auto-Retry (wait 10m)</option>
+                <option value="skip-day">Skip for the day</option>
+                <option value="pause-schedule">Pause schedule entirely</option>
+              </select>
+            </div>
+            <div className="form-group" style={{flex: 1}}>
+              <label htmlFor="cfg-notify">Notify Before (min)</label>
+              <input id="cfg-notify" type="number" value={notifyBefore} onChange={e => setNotifyBefore(e.target.value)} className="input-field" />
+            </div>
+          </div>
+
+          <label className="toggle-row" style={{background: 'rgba(255,255,255,0.02)', padding: '12px', border: '1px solid var(--border-subtle)'}}>
+            <div className="toggle-info">
+              <span className="toggle-label" style={{color: dryRun ? 'var(--warning)' : 'var(--text-primary)'}}>Dry Run Mode</span>
+              <span className="toggle-desc">Test schedule without actually pushing to GitHub</span>
+            </div>
+            <input type="checkbox" className="switch-input" checked={dryRun} onChange={e => setDryRun(e.target.checked)} />
+          </label>
+        </div>
+
+        <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',marginTop:'16px'}} onClick={handleSave}>
           <Check size={16} /> Save Schedule Config
         </button>
       </div>
@@ -726,6 +863,95 @@ function AppHeader({ currentPage, onNavigate, onOpenConfig, syncState, onSyncCli
 }
 
 /* ═══════════════════════════════════════════
+   COMPONENT: Live Push Banner
+   ═══════════════════════════════════════════ */
+function LivePushBanner({ pendingPushes, onAbort }) {
+  if (!pendingPushes || pendingPushes.length === 0) return null;
+
+  return (
+    <div style={{
+      background: 'rgba(239, 68, 68, 0.1)', borderBottom: '1px solid var(--danger)',
+      padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      position: 'relative', zIndex: 50
+    }}>
+      <div style={{display:'flex', alignItems:'center', gap:'8px', color:'var(--text-primary)'}}>
+        <AlertCircle size={20} style={{color:'var(--danger)'}} className="ai-pulse" />
+        <span><strong>Active Push Alert:</strong> The bot is arming to push in less than 10 minutes.</span>
+      </div>
+      <div style={{display:'flex', gap:'12px'}}>
+        {pendingPushes.map((p, idx) => (
+          <button key={idx} className="btn btn-primary" style={{background:'var(--danger)', borderColor:'transparent'}} onClick={() => onAbort(p.scheduleId, p.slotId)}>
+            <X size={16} /> Abort Push ({p.scheduleId})
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════
+   COMPONENT: Bouncing DVD Logo (Watermark)
+   ═══════════════════════════════════════════ */
+function BouncingLogo() {
+  const logoRef = useRef(null);
+  const pos = useRef({ x: Math.random() * 300, y: Math.random() * 300 });
+  const vel = useRef({ dx: 1.5, dy: 1.5 });
+  const logoSize = 150; // Size of the watermark
+
+  useEffect(() => {
+    let animationId;
+    const update = () => {
+      if (logoRef.current) {
+        let { x, y } = pos.current;
+        let { dx, dy } = vel.current;
+
+        x += dx;
+        y += dy;
+
+        if (x <= 0 || x + logoSize >= window.innerWidth) {
+          dx = -dx;
+          x = x <= 0 ? 0 : window.innerWidth - logoSize;
+        }
+        if (y <= 0 || y + logoSize >= window.innerHeight) {
+          dy = -dy;
+          y = y <= 0 ? 0 : window.innerHeight - logoSize;
+        }
+
+        pos.current = { x, y };
+        vel.current = { dx, dy };
+        
+        // Use transform for 60fps hardware acceleration with no React re-renders
+        logoRef.current.style.transform = `translate(${x}px, ${y}px)`;
+      }
+      animationId = requestAnimationFrame(update);
+    };
+    animationId = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(animationId);
+  }, []);
+
+  return (
+    <img 
+      ref={logoRef}
+      src={logoImg} 
+      alt="Bouncing Watermark" 
+      aria-hidden="true"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: `${logoSize}px`,
+        height: `${logoSize}px`,
+        opacity: 0.04, // Extremely faint watermark
+        zIndex: 0, // Behind the glass panels
+        pointerEvents: 'none',
+        borderRadius: '30px',
+        willChange: 'transform' // Optimize for animation
+      }} 
+    />
+  );
+}
+
+/* ═══════════════════════════════════════════
    ROOT APP
    ═══════════════════════════════════════════ */
 function App() {
@@ -736,10 +962,13 @@ function App() {
   const [activePreset, setActivePreset] = useState('organic');
   const [syncState, setSyncState] = useState('idle');
   const [schedules, setSchedules] = useState([]);
+  const [settings, setSettings] = useState({ alertProvider: 'discord', webhookUrl: '', ghPat: '', commitPool: 'tweak\nhousekeeping\ncleanup\nrefactor\nminor update' });
   const [queue, setQueue] = useState([]);
   const [skipDates, setSkipDates] = useState([]);
   const [repeatWeekly, setRepeatWeekly] = useState(false);
   const [toast, setToast] = useState(null);
+  const [selectedQueueItem, setSelectedQueueItem] = useState(null);
+  const [pendingPushes, setPendingPushes] = useState([]);
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
@@ -747,6 +976,7 @@ function App() {
     try {
       const config = await invoke('read_config');
       setSchedules(config.schedules);
+      if (config.settings) setSettings({ ...settings, ...config.settings });
       if (config.schedules.length > 0 && !activeSchedule) setActiveSchedule(config.schedules[0].id);
       const current = config.schedules.find(s => s.id === activeSchedule);
       if (current?.skipDates) setSkipDates(current.skipDates);
@@ -757,6 +987,38 @@ function App() {
   useEffect(() => {
     if (currentPage !== 'welcome') loadData();
   }, [currentPage, loadData]);
+
+  // Poll for T-n alerts
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const data = await invoke('read_pending_pushes');
+        if (data && data.armedSlots) setPendingPushes(data.armedSlots);
+      } catch (err) {}
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleAbort = async (scheduleId, slotId) => {
+    try {
+      await invoke('abort_push', { scheduleId, slotId });
+      showToast(`Abort flag set for ${scheduleId}. Push halted.`, 'success');
+      // Optimistically hide from banner
+      setPendingPushes(prev => prev.filter(p => p.slotId !== slotId));
+    } catch (err) {
+      showToast(String(err), 'error');
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    try {
+      await invoke('write_config', { config: { schedules, settings } });
+      showToast("Settings saved successfully.", "success");
+      setCurrentPage('dashboard');
+    } catch (err) {
+      showToast(String(err), "error");
+    }
+  };
 
   // Ctrl+K listener
   useEffect(() => {
@@ -792,15 +1054,24 @@ function App() {
 
   return (
     <div className="app-container">
+      {/* 60fps Bouncing DVD-style background watermark */}
+      {currentPage === 'dashboard' && <BouncingLogo />}
+      
+      <LivePushBanner pendingPushes={pendingPushes} onAbort={handleAbort} />
+
       <AppHeader currentPage={currentPage} onNavigate={navigate} onOpenConfig={() => setIsConfigOpen(true)}
         syncState={syncState} onSyncClick={handleSync} onOpenCmdPalette={() => setIsCmdOpen(true)} />
 
       {currentPage === 'dashboard' && (
         <DashboardPage schedules={schedules} activeSchedule={activeSchedule} setActiveSchedule={setActiveSchedule}
-          queue={queue} onRefreshQueue={loadData} onNavigate={navigate} activePreset={activePreset} skipDates={skipDates} />
+          queue={queue} onRefreshQueue={loadData} onNavigate={navigate} activePreset={activePreset} skipDates={skipDates} onSelectQueueItem={setSelectedQueueItem} />
       )}
       {currentPage === 'ai' && <AIPage onNavigate={navigate} />}
-      {currentPage === 'settings' && <SettingsPage onNavigate={navigate} />}
+      {currentPage === 'settings' && <SettingsPage onNavigate={navigate} settings={settings} setSettings={setSettings} onSaveSettings={handleSaveSettings} />}
+
+      {selectedQueueItem && (
+        <QueueItemModal item={selectedQueueItem} allItems={queue} onClose={() => setSelectedQueueItem(null)} onRefreshQueue={loadData} />
+      )}
 
       <ConfigModal isOpen={isConfigOpen} onClose={() => setIsConfigOpen(false)} activeSchedule={activeSchedule}
         activePreset={activePreset} setActivePreset={setActivePreset} schedules={schedules}
