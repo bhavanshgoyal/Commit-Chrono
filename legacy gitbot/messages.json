@@ -1,9 +1,0 @@
-{
-  "general":  ["minor update", "small fix", "tweak", "cleanup", "misc changes", "housekeeping", "polish"],
-  "feature":  ["add new function", "implement feature", "update logic", "introduce module", "extend API"],
-  "fix":      ["fix bug", "patch issue", "correct behavior", "resolve edge case", "address regression"],
-  "refactor": ["restructure code", "clean up module", "simplify logic", "improve readability"],
-  "docs":     ["update docs", "add comments", "improve README", "document function"],
-  "test":     ["add test case", "extend test coverage", "fix failing test"],
-  "chore":    ["update dependencies", "bump version", "config update", "CI fix"]
-}
