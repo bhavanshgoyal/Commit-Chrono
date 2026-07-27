@@ -41,14 +41,15 @@ def runGitCommand(args: list) -> dict:
 
 def checkForConflict(branch: str) -> bool:
     """
-    Fetches the latest remote state and compares local HEAD with remote HEAD.
+    Fetches the latest remote state and checks if the remote branch has new commits
+    that our local branch doesn't have.
     Returns True if the remote has moved ahead (conflict), False if clean.
-    Called AFTER `git commit` but BEFORE `git push` in every commit cycle.
+    Called AFTER `git commit` but BEFORE `git push`.
     """
     runGitCommand(["fetch", "origin", branch])
-    local  = runGitCommand(["rev-parse", "HEAD"])["stdout"]
-    remote = runGitCommand(["rev-parse", f"origin/{branch}"])["stdout"]
-    return local != remote
+    # Count how many commits origin/branch has that HEAD does not have
+    result = runGitCommand(["rev-list", f"HEAD..origin/{branch}", "--count"])
+    return result["stdout"].strip() != "0"
 
 
 def commitAndPush(message: str) -> dict:

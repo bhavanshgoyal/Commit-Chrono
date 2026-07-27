@@ -215,6 +215,16 @@
             "message": "improve README",
             "jitterSeconds": 0,
             "error": null
+        },
+        {
+            "scheduleId": "self-log",
+            "status": "failure",
+            "item": "tescode4",
+            "message": "tweak",
+            "jitterSeconds": 4911,
+            "commitHash": null,
+            "error": "Conflict detected: remote 'main' moved ahead during this run. Not pushing to avoid overwrite. Review and re-run manually.",
+            "timestamp": "2026-07-27T07:01:55.304466+00:00"
         }
     ]
 }
