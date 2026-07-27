@@ -360,7 +360,7 @@ function WelcomePage({ onGetStarted }) {
 /* ═══════════════════════════════════════════
    PAGE: Dashboard
    ═══════════════════════════════════════════ */
-function DashboardPage({ schedules, activeSchedule, setActiveSchedule, queue, onRefreshQueue, onNavigate, activePreset, skipDates, onSelectQueueItem }) {
+function DashboardPage({ schedules, activeSchedule, setActiveSchedule, queue, onRefreshQueue, onNavigate, activePreset, skipDates, onSelectQueueItem, onAddRepo, onRemoveRepo }) {
   const [isDragging, setIsDragging] = useState(false);
   const [dropMessage, setDropMessage] = useState(null);
   const [latestDrop, setLatestDrop] = useState(null);
@@ -413,7 +413,12 @@ function DashboardPage({ schedules, activeSchedule, setActiveSchedule, queue, on
         {/* LEFT SIDEBAR */}
         <aside className="sidebar sidebar-left" aria-label="Schedules and Heatmap">
           <div className="glass-panel" style={{flex: 1, overflowY: 'auto', minHeight: '200px'}}>
-            <h2 className="panel-title"><Zap size={18} aria-hidden="true" /> Schedules</h2>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}}>
+              <h2 className="panel-title" style={{marginBottom:0}}><Zap size={18} aria-hidden="true" /> Schedules</h2>
+              <button className="btn btn-ghost" style={{padding:'4px 8px',fontSize:'0.8rem'}} onClick={onAddRepo}>
+                <Plus size={14} /> Add Repo
+              </button>
+            </div>
             <div className="schedule-list" role="listbox">
               {schedules.map(s => (
                 <div key={s.id} className={`schedule-card ${activeSchedule === s.id ? 'active' : ''}`}
@@ -421,7 +426,12 @@ function DashboardPage({ schedules, activeSchedule, setActiveSchedule, queue, on
                   role="option" aria-selected={activeSchedule === s.id} tabIndex={0}>
                   <div className="schedule-header">
                     <span className="schedule-id">{s.id}</span>
-                    <span className={`schedule-badge badge-${s.mode}`}>{s.mode}</span>
+                    <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                      <span className={`schedule-badge badge-${s.mode}`}>{s.mode}</span>
+                      <button className="btn-icon" style={{padding:2}} onClick={(e) => { e.stopPropagation(); onRemoveRepo(s.id); }} aria-label={`Remove ${s.id}`}>
+                        <Trash2 size={14} style={{color:'var(--text-muted)'}} />
+                      </button>
+                    </div>
                   </div>
                   <div className="schedule-meta">
                     <span className="schedule-repo">{s.repo}</span>
@@ -717,6 +727,157 @@ function QueueItemModal({ item, allItems, onClose, onRefreshQueue }) {
 }
 
 /* ═══════════════════════════════════════════
+   COMPONENT: Add Repo Modal
+   ═══════════════════════════════════════════ */
+function AddRepoModal({ isOpen, onClose, settings, onAdd }) {
+  const [repos, setRepos] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (!settings.ghPat) {
+        setError("Please set your GitHub PAT in Settings first.");
+        return;
+      }
+      setLoading(true);
+      invoke('fetch_github_repos', { pat: settings.ghPat })
+        .then(res => { setRepos(res); setError(null); })
+        .catch(err => setError(String(err)))
+        .finally(() => setLoading(false));
+    }
+  }, [isOpen, settings.ghPat]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal-overlay" onClick={onClose} role="dialog">
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{maxWidth: '600px'}}>
+        <div className="modal-header">
+          <h2><Zap size={22} style={{verticalAlign:'middle',marginRight:8}} /> Add Repository</h2>
+          <button className="close-btn" onClick={onClose}><X size={22} /></button>
+        </div>
+        
+        {error && <div className="error-banner" style={{background:'var(--danger)',padding:12,borderRadius:8,marginBottom:16}}>{error}</div>}
+        {loading && <div style={{textAlign:'center',padding:40}}><RefreshCw size={24} className="spin" /><p>Fetching your repositories...</p></div>}
+        
+        {!loading && !error && (
+          <div style={{maxHeight:'400px',overflowY:'auto',display:'flex',flexDirection:'column',gap:8}}>
+            {repos.length === 0 && <p style={{color:'var(--text-muted)'}}>No repositories found.</p>}
+            {repos.map(r => (
+              <div key={r.id} className="preset-card" onClick={() => { onAdd(r.full_name, r.default_branch); onClose(); }} style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div>
+                  <strong>{r.name}</strong>
+                  <div style={{fontSize:'0.8rem',color:'var(--text-secondary)'}}>{r.full_name}</div>
+                </div>
+                <div style={{fontSize:'0.8rem',background:'rgba(255,255,255,0.1)',padding:'2px 8px',borderRadius:4}}>{r.private ? 'Private' : 'Public'}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════
+   COMPONENT: Setup Wizard
+   ═══════════════════════════════════════════ */
+function SetupWizard({ onComplete, settings, setSettings }) {
+  const [step, setStep] = useState(1);
+
+  const next = () => setStep(s => Math.min(s + 1, 4));
+  const prev = () => setStep(s => Math.max(s - 1, 1));
+
+  return (
+    <div className="modal-overlay" style={{zIndex: 9999, backdropFilter:'blur(8px)'}}>
+      <div className="modal-content" style={{maxWidth: '700px', border:'1px solid var(--accent)'}}>
+        <div className="modal-header" style={{borderBottom:'1px solid var(--border-subtle)', paddingBottom:16}}>
+          <h2 style={{display:'flex',alignItems:'center',gap:8}}><Sparkles size={24} color="var(--accent)" /> Welcome to Commit Chrono</h2>
+          <span style={{color:'var(--text-muted)'}}>Step {step} of 4</span>
+        </div>
+        
+        <div style={{minHeight: 300, paddingTop: 24}}>
+          {step === 1 && (
+            <div>
+              <h3 style={{fontSize:'1.2rem', marginBottom:16}}>1. Connect your GitHub</h3>
+              <p style={{color:'var(--text-secondary)', marginBottom:16}}>To securely push code directly from your machine without any central servers, we need a Personal Access Token (PAT).</p>
+              <ol style={{color:'var(--text-secondary)', marginBottom:24, paddingLeft:24, lineHeight:1.8}}>
+                <li>Go to GitHub.com &gt; Settings &gt; Developer Settings &gt; Personal Access Tokens (Classic).</li>
+                <li>Click <strong>Generate new token (classic)</strong>.</li>
+                <li>Check the <strong>repo</strong> scope (full control of private repositories).</li>
+                <li>Paste the generated token below:</li>
+              </ol>
+              <input type="password" placeholder="ghp_..." className="input-field" style={{width:'100%'}} 
+                value={settings.ghPat || ''} onChange={e => setSettings(p => ({...p, ghPat: e.target.value}))} />
+            </div>
+          )}
+
+          {step === 2 && (
+            <div>
+              <h3 style={{fontSize:'1.2rem', marginBottom:16}}>2. Set up Notifications</h3>
+              <p style={{color:'var(--text-secondary)', marginBottom:16}}>Get mobile alerts before the bot makes a push, giving you time to hit [ABORT].</p>
+              <div className="form-group" style={{marginBottom:16}}>
+                <label>Provider</label>
+                <select className="input-field" value={settings.alertProvider || 'discord'} onChange={e => setSettings(p => ({...p, alertProvider: e.target.value}))}>
+                  <option value="discord">Discord Webhook</option>
+                  <option value="ntfy">Ntfy.sh (Recommended for privacy)</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>URL or Topic</label>
+                <input type="url" placeholder={settings.alertProvider === 'ntfy' ? "https://ntfy.sh/my_secret_topic" : "https://discord.com/api/webhooks/..."} 
+                  className="input-field" value={settings.webhookUrl || ''} onChange={e => setSettings(p => ({...p, webhookUrl: e.target.value}))} />
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div>
+              <h3 style={{fontSize:'1.2rem', marginBottom:16}}>3. The Power of Chrono Mods</h3>
+              <p style={{color:'var(--text-secondary)', marginBottom:24}}>Commit Chrono is designed to build a highly organic commit graph. You can enable mods in the dashboard:</p>
+              <div style={{display:'flex', gap:16}}>
+                <div className="glass-panel" style={{flex:1, padding:16}}>
+                  <h4 style={{color:'var(--accent)', marginBottom:8}}><Activity size={16} /> Time Machine Mode</h4>
+                  <p style={{fontSize:'0.85rem', color:'var(--text-muted)'}}>The bot will automatically alter the GIT_AUTHOR_DATE of your commits to backdate them into the past, filling in empty days on your GitHub graph.</p>
+                </div>
+                <div className="glass-panel" style={{flex:1, padding:16}}>
+                  <h4 style={{color:'var(--warning)', marginBottom:8}}><Flame size={16} /> Ghost Coder</h4>
+                  <p style={{fontSize:'0.85rem', color:'var(--text-muted)'}}>Forces the engine to wake up and push strictly between 2:00 AM and 4:00 AM local time, simulating late-night coding sessions.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div style={{textAlign:'center', paddingTop:24}}>
+              <Check size={64} style={{color:'var(--success)', marginBottom:16}} />
+              <h3 style={{fontSize:'1.5rem', marginBottom:16}}>You're Ready to Roll!</h3>
+              <p style={{color:'var(--text-secondary)', marginBottom:24}}>
+                <strong>How to start:</strong><br/><br/>
+                1. Click <strong>+ Add Repo</strong> to fetch your GitHub projects.<br/>
+                2. Drag and drop code files into the <strong>Drop Zone</strong>.<br/>
+                3. Click a file in the <strong>Queue</strong> to set dependencies and date locks.<br/>
+                4. Let the Python engine do the rest!
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div style={{display:'flex', justifyContent:'space-between', marginTop:32, paddingTop:16, borderTop:'1px solid var(--border-subtle)'}}>
+          <button className="btn btn-ghost" onClick={prev} disabled={step === 1} style={{opacity: step === 1 ? 0.3 : 1}}>Back</button>
+          {step < 4 ? (
+            <button className="btn btn-primary" onClick={next}>Continue <ArrowRight size={16} /></button>
+          ) : (
+            <button className="btn btn-primary" onClick={onComplete} style={{background:'var(--success)'}}><Check size={16} /> Finish Setup</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════
    COMPONENT: Config Modal
    ═══════════════════════════════════════════ */
 function ConfigModal({ isOpen, onClose, activeSchedule, activePreset, setActivePreset, schedules, skipDates, setSkipDates, repeatWeekly, setRepeatWeekly }) {
@@ -969,6 +1130,8 @@ function App() {
   const [toast, setToast] = useState(null);
   const [selectedQueueItem, setSelectedQueueItem] = useState(null);
   const [pendingPushes, setPendingPushes] = useState([]);
+  const [isAddRepoOpen, setIsAddRepoOpen] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
@@ -1019,6 +1182,52 @@ function App() {
       showToast(String(err), "error");
     }
   };
+  
+  const handleWizardComplete = async () => {
+    const updatedSettings = { ...settings, hasCompletedSetup: true };
+    setSettings(updatedSettings);
+    setShowWizard(false);
+    try {
+      await invoke('write_config', { config: { schedules, settings: updatedSettings } });
+    } catch (err) { console.error(err); }
+  };
+  
+  const handleRemoveRepo = async (scheduleId) => {
+    const newSchedules = schedules.filter(s => s.id !== scheduleId);
+    setSchedules(newSchedules);
+    if (activeSchedule === scheduleId) setActiveSchedule(newSchedules[0]?.id || '');
+    try {
+      await invoke('write_config', { config: { schedules: newSchedules, settings } });
+      showToast("Repository removed", "success");
+    } catch (err) { showToast(String(err), "error"); }
+  };
+  
+  const handleAddRepo = async (repoName, branch) => {
+    const newSchedule = {
+      id: repoName.split('/').pop() || 'new-repo',
+      repo: repoName,
+      branch: branch || 'main',
+      mode: 'self',
+      targetPath: '.',
+      startDate: new Date().toISOString().split('T')[0],
+      spanDays: 30,
+      times: ["09:00"],
+      timezone: "UTC",
+      jitterMinutes: 120,
+      notifyBeforeMinutes: 10,
+      abortBehavior: "auto-retry",
+      dryRun: false,
+      skipDates: [],
+      intensity: {}
+    };
+    const newSchedules = [...schedules, newSchedule];
+    setSchedules(newSchedules);
+    setActiveSchedule(newSchedule.id);
+    try {
+      await invoke('write_config', { config: { schedules: newSchedules, settings } });
+      showToast("Repository added", "success");
+    } catch (err) { showToast(String(err), "error"); }
+  };
 
   // Ctrl+K listener
   useEffect(() => {
@@ -1064,7 +1273,7 @@ function App() {
 
       {currentPage === 'dashboard' && (
         <DashboardPage schedules={schedules} activeSchedule={activeSchedule} setActiveSchedule={setActiveSchedule}
-          queue={queue} onRefreshQueue={loadData} onNavigate={navigate} activePreset={activePreset} skipDates={skipDates} onSelectQueueItem={setSelectedQueueItem} />
+          queue={queue} onRefreshQueue={loadData} onNavigate={navigate} activePreset={activePreset} skipDates={skipDates} onSelectQueueItem={setSelectedQueueItem} onAddRepo={() => setIsAddRepoOpen(true)} onRemoveRepo={handleRemoveRepo} />
       )}
       {currentPage === 'ai' && <AIPage onNavigate={navigate} />}
       {currentPage === 'settings' && <SettingsPage onNavigate={navigate} settings={settings} setSettings={setSettings} onSaveSettings={handleSaveSettings} />}
@@ -1076,6 +1285,12 @@ function App() {
       <ConfigModal isOpen={isConfigOpen} onClose={() => setIsConfigOpen(false)} activeSchedule={activeSchedule}
         activePreset={activePreset} setActivePreset={setActivePreset} schedules={schedules}
         skipDates={skipDates} setSkipDates={setSkipDates} repeatWeekly={repeatWeekly} setRepeatWeekly={setRepeatWeekly} />
+        
+      <AddRepoModal isOpen={isAddRepoOpen} onClose={() => setIsAddRepoOpen(false)} settings={settings} onAdd={handleAddRepo} />
+      
+      {(!settings.hasCompletedSetup || showWizard) && (
+        <SetupWizard onComplete={handleWizardComplete} settings={settings} setSettings={setSettings} />
+      )}
 
       <CommandPalette isOpen={isCmdOpen} onClose={() => setIsCmdOpen(false)} onAction={handleCmdAction} />
 

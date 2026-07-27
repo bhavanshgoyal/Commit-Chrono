@@ -33,6 +33,8 @@ pub struct Settings {
     pub alert_provider: Option<String>,
     pub webhook_url: Option<String>,
     pub gh_pat: Option<String>,
+    pub commit_pool: Option<String>,
+    pub has_completed_setup: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -432,6 +434,31 @@ fn get_project_path() -> Result<String, String> {
 }
 
 // ═══════════════════════════════════════════
+// COMMAND: Fetch GitHub Repos
+// ═══════════════════════════════════════════
+
+#[tauri::command]
+fn fetch_github_repos(pat: String) -> Result<Vec<serde_json::Value>, String> {
+    if pat.is_empty() {
+        return Err("No PAT provided".to_string());
+    }
+    
+    let client = reqwest::blocking::Client::new();
+    let res = client.get("https://api.github.com/user/repos?per_page=100&sort=updated")
+        .header("User-Agent", "Commit-Chrono-App")
+        .header("Authorization", format!("token {}", pat))
+        .send()
+        .map_err(|e| format!("Request failed: {}", e))?;
+
+    if !res.status().is_success() {
+        return Err(format!("GitHub API error: {}", res.status()));
+    }
+
+    let repos: Vec<serde_json::Value> = res.json().map_err(|e| e.to_string())?;
+    Ok(repos)
+}
+
+// ═══════════════════════════════════════════
 // APP ENTRY POINT
 // ═══════════════════════════════════════════
 
@@ -449,7 +476,8 @@ pub fn run() {
             get_project_path,
             update_item_meta,
             read_pending_pushes,
-            abort_push
+            abort_push,
+            fetch_github_repos
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
