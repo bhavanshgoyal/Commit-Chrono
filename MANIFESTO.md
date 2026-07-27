@@ -24,7 +24,8 @@ We believe that code automation should happen on **your** hardware.
 How it solves the problem:
 - **100% Local-First Privacy:** The engine is built using Rust, React, and Python, running entirely on your local machine. Your Personal Access Token never leaves your hard drive, meaning zero risk of centralized data breaches.
 - **Organic Workflows:** Instead of rigid, robotic automation, Commit Chrono introduces "Jitter"—randomizing the exact minute your code is pushed so that the graph looks entirely human.
-- **Time Machine & Ghost Coder:** By manipulating the `GIT_AUTHOR_DATE`, Commit Chrono can backdate code to fill in missed days, or push strictly between 2:00 AM and 4:00 AM to simulate late-night coding sessions.
+- **Intelligent Habit Goals:** Commit Chrono acts as a personal coach. By setting a Habit Goal (like "Weekend Warrior" or "The 9-to-5"), the app monitors your local activity and sends you push notifications to your phone to remind you to do real work when your streak is in danger.
+- **AI Code Splitter:** Powered by Gemini, the app can take massive, monolithic files written in a single caffeine-fueled weekend, and automatically break them down into clean, atomic commits for easier code review.
 - **Granular Control:** With visual dependency chains ("Don't push file B until file A is complete") and T-Minus mobile alerts via Ntfy/Discord, you have absolute control over when and how your code hits the internet.
 
 We built this so you can code at your own pace, dump your files into the Drop Zone, and let the Chrono engine organically build your graph while you sleep.

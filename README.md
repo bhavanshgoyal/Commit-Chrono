@@ -21,11 +21,11 @@ Unlike SaaS platforms that hold your GitHub tokens on central servers, **Commit 
 
 ---
 
-## ⚡ Chrono Mods
+## ⚡ AI Code Splitter & Streak Protector
 
-Commit Chrono ships with powerful algorithmic graph modifiers:
-- **Time Machine Mode:** Missed a week of coding? The bot can alter the `GIT_AUTHOR_DATE` to safely backdate commits into the past, filling your graph organically.
-- **Ghost Coder:** Simulates late-night engineering by forcing the engine to wake up and push strictly between 2:00 AM and 4:00 AM local time.
+Commit Chrono ships with powerful algorithmic tools for your engineering flow:
+- **Intelligent Habit Goals:** The bot acts as a streak protector. Select a target like "Weekend Warrior" or "Daily Grind", and if you forget to commit real code, it will ping your phone to remind you to get to work.
+- **AI Code Splitter (Gemini):** Placed a huge 1,000-line file in the drop zone after a caffeine-fueled weekend? The AI Code Splitter will automatically reverse-engineer your code and break it into clean, atomic, iterative commits for a perfect git history.
 
 ---
 

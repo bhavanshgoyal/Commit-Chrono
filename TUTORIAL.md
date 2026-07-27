@@ -7,7 +7,7 @@ Welcome to Commit Chrono! This guide will walk you through exactly how to set up
 2. [Connecting Your Repositories](#2-connecting-your-repositories)
 3. [The Drop Zone & Queue](#3-the-drop-zone--queue)
 4. [Setting Up Dependencies (File Linking)](#4-setting-up-dependencies)
-5. [Using Chrono Mods (Time Machine & Ghost Coder)](#5-using-chrono-mods)
+5. [Using Habit Goals & AI Splitter](#5-using-habit-goals--ai-splitter)
 6. [Handling T-Minus Notifications & Aborting](#6-handling-t-minus-notifications--aborting)
 
 ---
@@ -65,12 +65,12 @@ What if you drag in `database.js` and `api.js`, but `api.js` will break if `data
 
 ---
 
-### 5. Using Chrono Mods
-You can customize *how* and *when* the bot pushes your code by clicking the **Configure Schedule** button at the top of the dashboard.
+### 5. Using Habit Goals & AI Splitter
+You can customize *how* the bot helps you build habits and manage large files:
 
-- **Time Machine Mode:** Turn this on if you want the bot to alter the `GIT_AUTHOR_DATE`. This forces GitHub to render the commit in the past, allowing you to fill out missing green squares on your contribution graph.
-- **Ghost Coder:** Turn this on to restrict the bot from pushing during the day. It will only push between 2:00 AM and 4:00 AM, creating a commit history that looks like you code late into the night.
-- **Jitter:** If you tell the bot to push at 9:00 AM, a Jitter of 120 minutes means the bot will randomly push anywhere between 7:00 AM and 11:00 AM. This ensures your commit history looks entirely organic and human.
+- **Habit Goals:** Click the **Config** button to select a target like "Weekend Warrior" or "The 9-to-5". The bot will monitor your local commits and send a push notification to your phone if you forget to commit real code on your target days.
+- **AI Code Splitter:** If you drop a massive, monolithic file into the app, the Gemini AI engine can automatically read it and break it down into clean, atomic commits for a perfect git history.
+- **Jitter:** If you schedule the queue to push at 9:00 AM, a Jitter of 120 minutes means the bot will randomly push anywhere between 7:00 AM and 11:00 AM, giving your batched commits a natural flow.
 
 ---
 

@@ -43,12 +43,12 @@ from bot.queue_manager import (
     applyQueueItem, markItemUsed,
 )
 from bot.git_ops      import commitAndPushWithRetry, deployToTarget
-from bot.alerts       import sendAlert, checkAndNotify
+from bot.alerts       import sendAlert, checkAndNotify, checkHabitWarnings
 from bot.logger       import logRun
 from bot.abort_handler import (
     checkAborted, clearAbortFlag, handleAbort, resolveReschedule,
 )
-from bot.intensity    import getIntensity, intensityToCount
+from bot.habits import check_habit_warning
 
 
 # ── Message helpers ───────────────────────────────────────────────────────────
@@ -215,6 +215,9 @@ def main() -> None:
         try:
             # ── T-minus-N notification (runs regardless of shouldRunNow) ──
             checkAndNotify(schedule, now)
+            
+            # ── Habit Goal notification (runs once per day) ───────────────
+            checkHabitWarnings(schedule, now)
 
             # ── Skip-day check ────────────────────────────────────────────
             if isSkipDay(schedule, now):
@@ -275,20 +278,9 @@ def main() -> None:
 
                 continue   # abort handling complete, move to next schedule
 
-            # ── Intensity → commit count ──────────────────────────────────
-            tz    = zoneinfo.ZoneInfo(schedule["timezone"])
-            today = now.astimezone(tz).date()
-            level = getIntensity(schedule, today)
-            count = intensityToCount(level)
-
-            # light intensity can return 0 (skip day naturally)
-            if count == 0:
-                print(f"[{schedule_id}] Light intensity rolled 0 commits. Skipping today.")
-                continue
-
-            print(f"[{schedule_id}] Intensity: {level} -> {count} commit(s) today")
-
             # ── Commit cycles ─────────────────────────────────────────────
+            # Honest batching: we will process up to 3 eligible items per run.
+            count = 3
             for cycle_num in range(1, count + 1):
                 print(f"\n[{schedule_id}] Cycle {cycle_num}/{count}")
                 runOneCommitCycle(schedule, messages_pool)

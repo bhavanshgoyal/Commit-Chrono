@@ -19,6 +19,7 @@ import requests
 from bot.utils import getCurrentDateTime, urlSafe
 
 PENDING_PUSH_LOG = os.path.join("logs", "pending-push.json")
+HABIT_WARNING_LOG = os.path.join("logs", "habit-warnings.json")
 
 
 # ── Discord / Ntfy webhooks ──────────────────────────────────────────────────
@@ -132,3 +133,53 @@ def checkAndNotify(schedule: dict, now_dt: datetime | None = None) -> None:
                 sendAlert(msg)
                 recordArmedSlot(schedule_id, slot_id)
                 print(f"[{schedule_id}] Pre-push notification sent for slot {slot_id}")
+
+# ── Habit Goal Warnings ──────────────────────────────────────────────────────
+
+def _loadHabitWarnings() -> dict:
+    os.makedirs("logs", exist_ok=True)
+    if not os.path.exists(HABIT_WARNING_LOG):
+        return {"warnings": {}}
+    try:
+        with open(HABIT_WARNING_LOG, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {"warnings": {}}
+
+def _saveHabitWarnings(data: dict) -> None:
+    with open(HABIT_WARNING_LOG, "w") as f:
+        json.dump(data, f, indent=2)
+
+def checkHabitWarnings(schedule: dict, now_dt: datetime | None = None) -> None:
+    """
+    Checks if a habit goal warning should be sent today.
+    Deduplicates so it only sends once per day.
+    """
+    from bot.habits import check_habit_warning, get_habit_message
+    
+    if now_dt is None:
+        now_dt = getCurrentDateTime()
+        
+    tz = zoneinfo.ZoneInfo(schedule["timezone"])
+    today = now_dt.astimezone(tz).date()
+    today_str = today.isoformat()
+    schedule_id = schedule["id"]
+    
+    # Check if we should warn today based on the Habit Goal
+    if not check_habit_warning(schedule, today):
+        return
+        
+    # Check if we already warned today
+    data = _loadHabitWarnings()
+    if data["warnings"].get(schedule_id) == today_str:
+        return # Already sent today
+        
+    # Send warning
+    preset = schedule.get("activePreset", "organic")
+    msg = f"🛡️ **[{schedule_id}] Streak Protector:**\n{get_habit_message(preset)}"
+    sendAlert(msg)
+    
+    # Record that we sent it
+    data["warnings"][schedule_id] = today_str
+    _saveHabitWarnings(data)
+    print(f"[{schedule_id}] Habit warning sent for {today_str}")

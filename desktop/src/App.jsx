@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { UploadCloud, FileCode2, Settings, RefreshCw, X, Activity, Brain, ChevronRight, ChevronLeft, Zap, Clock, Sparkles, ArrowRight, ArrowUp, ArrowDown, Coffee, Briefcase, Flame, Leaf, Check, AlertCircle, Trash2, Search, Command, Calendar as CalendarIcon, BarChart3, Repeat, Bot, MessageSquare } from 'lucide-react';
+import { UploadCloud, FileCode2, Settings, RefreshCw, X, Activity, Brain, ChevronRight, ChevronLeft, Zap, Clock, Sparkles, ArrowRight, ArrowUp, ArrowDown, Coffee, Briefcase, Flame, Leaf, Check, AlertCircle, Trash2, Search, Command, Calendar as CalendarIcon, BarChart3, Repeat, Bot, MessageSquare, Plus } from 'lucide-react';
 import logoImg from './assets/logo.jpg';
 import './App.css';
 
@@ -515,21 +515,21 @@ function DashboardPage({ schedules, activeSchedule, setActiveSchedule, queue, on
           </div>
 
           <div className="glass-panel" style={{flexShrink: 0, marginTop: '16px'}}>
-            <h2 className="panel-title" style={{marginBottom: '12px'}}><Sparkles size={18} /> Chrono Mods</h2>
+            <h2 className="panel-title" style={{marginBottom: '12px'}}><Brain size={18} /> AI & Habits</h2>
             <div className="novelty-toggles">
               <label className="toggle-row">
                 <div className="toggle-info">
-                  <span className="toggle-label">Time Machine Mode</span>
-                  <span className="toggle-desc">Backdate commits in history</span>
+                  <span className="toggle-label">Auto-Split Large Files</span>
+                  <span className="toggle-desc">Automatically use Gemini AI to split files</span>
                 </div>
                 <input type="checkbox" className="switch-input" />
               </label>
               <label className="toggle-row">
                 <div className="toggle-info">
-                  <span className="toggle-label">Ghost Coder</span>
-                  <span className="toggle-desc">Force pushes at 3 AM local</span>
+                  <span className="toggle-label">Strict Habit Nudges</span>
+                  <span className="toggle-desc">Send mobile alerts if I miss my Habit Goal</span>
                 </div>
-                <input type="checkbox" className="switch-input" />
+                <input type="checkbox" className="switch-input" defaultChecked />
               </label>
             </div>
           </div>
@@ -621,6 +621,13 @@ function SettingsPage({ onNavigate, settings, setSettings, onSaveSettings }) {
             <div className="settings-row">
               <label htmlFor="gh-pat">Personal Access Token (GH_PAT)</label>
               <input id="gh-pat" type="password" placeholder="ghp_xxxxxxxxxxxx" className="input-field" value={settings.ghPat || ''} onChange={e => handleChange('ghPat', e.target.value)} />
+            </div>
+          </div>
+          <div className="settings-group">
+            <h3 className="settings-label">AI Engine (Gemini)</h3>
+            <div className="settings-row">
+              <label htmlFor="ai-key">Gemini API Key</label>
+              <input id="ai-key" type="password" placeholder="AIzaSy..." className="input-field" value={settings.geminiApiKey || ''} onChange={e => handleChange('geminiApiKey', e.target.value)} />
             </div>
           </div>
           <div className="settings-group">
@@ -834,16 +841,23 @@ function SetupWizard({ onComplete, settings, setSettings }) {
 
           {step === 3 && (
             <div>
-              <h3 style={{fontSize:'1.2rem', marginBottom:16}}>3. The Power of Chrono Mods</h3>
-              <p style={{color:'var(--text-secondary)', marginBottom:24}}>Commit Chrono is designed to build a highly organic commit graph. You can enable mods in the dashboard:</p>
+              <h3 style={{fontSize:'1.2rem', marginBottom:16}}>3. AI Engine & Habit Goals</h3>
+              <p style={{color:'var(--text-secondary)', marginBottom:24}}>Commit Chrono uses Google's Gemini AI to automatically split your monolithic files into iterative commits. It also helps you build real coding habits.</p>
+              
+              <div className="form-group" style={{marginBottom:24}}>
+                <label>Gemini API Key (Optional)</label>
+                <input type="password" placeholder="AIzaSy..." className="input-field" style={{width:'100%'}} 
+                  value={settings.geminiApiKey || ''} onChange={e => setSettings(p => ({...p, geminiApiKey: e.target.value}))} />
+              </div>
+
               <div style={{display:'flex', gap:16}}>
                 <div className="glass-panel" style={{flex:1, padding:16}}>
-                  <h4 style={{color:'var(--accent)', marginBottom:8}}><Activity size={16} /> Time Machine Mode</h4>
-                  <p style={{fontSize:'0.85rem', color:'var(--text-muted)'}}>The bot will automatically alter the GIT_AUTHOR_DATE of your commits to backdate them into the past, filling in empty days on your GitHub graph.</p>
+                  <h4 style={{color:'var(--accent)', marginBottom:8}}><Brain size={16} /> AI Code Splitter</h4>
+                  <p style={{fontSize:'0.85rem', color:'var(--text-muted)'}}>The AI will analyze large files you drop into the queue and automatically break them down into smaller, logical commits for a pristine git history.</p>
                 </div>
                 <div className="glass-panel" style={{flex:1, padding:16}}>
-                  <h4 style={{color:'var(--warning)', marginBottom:8}}><Flame size={16} /> Ghost Coder</h4>
-                  <p style={{fontSize:'0.85rem', color:'var(--text-muted)'}}>Forces the engine to wake up and push strictly between 2:00 AM and 4:00 AM local time, simulating late-night coding sessions.</p>
+                  <h4 style={{color:'var(--warning)', marginBottom:8}}><Flame size={16} /> Streak Protector</h4>
+                  <p style={{fontSize:'0.85rem', color:'var(--text-muted)'}}>Select a Habit Goal (like "Weekend Warrior" or "Daily Grind") in the config menu, and the bot will send you push notifications if you forget to commit real work.</p>
                 </div>
               </div>
             </div>
@@ -891,10 +905,10 @@ function ConfigModal({ isOpen, onClose, activeSchedule, activePreset, setActiveP
   const [notifyBefore, setNotifyBefore] = useState(currentSchedule?.notifyBeforeMinutes || 10);
 
   const presets = [
-    { id: 'organic', title: 'The Organic Human', icon: <Leaf size={20} />, desc: 'Consistent pushes with 10% skip days.' },
-    { id: 'weekend', title: 'Weekend Warrior', icon: <Coffee size={20} />, desc: 'Only Saturdays and Sundays.' },
-    { id: 'corporate', title: 'The 9-to-5', icon: <Briefcase size={20} />, desc: 'Monday-Friday, 9am-5pm.' },
-    { id: 'burnout', title: 'Burnout Spikes', icon: <Flame size={20} />, desc: 'Massive clumps then silences.' },
+    { id: 'organic', title: 'Daily Grind', icon: <Leaf size={20} />, desc: 'Gentle daily nudges to keep your streak alive.' },
+    { id: 'weekend', title: 'Weekend Warrior', icon: <Coffee size={20} />, desc: 'Only prompts you on Saturdays and Sundays.' },
+    { id: 'corporate', title: 'The 9-to-5', icon: <Briefcase size={20} />, desc: 'Strictly prompts you during weekday business hours.' },
+    { id: 'burnout', title: 'The Sprinter', icon: <Flame size={20} />, desc: 'Prompts you for massive coding sessions every few days.' },
   ];
 
   const handleSave = async () => {
@@ -919,7 +933,7 @@ function ConfigModal({ isOpen, onClose, activeSchedule, activePreset, setActiveP
         </div>
 
         <div className="modal-section">
-          <h3 className="modal-section-title"><Activity size={16} /> Graph Intensity Profile</h3>
+          <h3 className="modal-section-title"><Activity size={16} /> Habit Goal / Reminder Profile</h3>
           <div className="preset-grid" role="radiogroup">
             {presets.map(p => (
               <div key={p.id} className={`preset-card ${activePreset === p.id ? 'active' : ''}`}

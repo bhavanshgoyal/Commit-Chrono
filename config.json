@@ -8,7 +8,9 @@
       "targetPath": "src/",
       "startDate": "2026-07-26",
       "spanDays": 10,
-      "times": ["23:59"],
+      "times": [
+        "23:59"
+      ],
       "timezone": "Asia/Kolkata",
       "jitterMinutes": 1,
       "notifyBeforeMinutes": 10,
@@ -25,7 +27,9 @@
       "targetPath": "bot-updates/",
       "startDate": "2026-07-26",
       "spanDays": 10,
-      "times": ["12:00"],
+      "times": [
+        "12:00"
+      ],
       "timezone": "Asia/Kolkata",
       "jitterMinutes": 120,
       "notifyBeforeMinutes": 10,
@@ -34,5 +38,12 @@
       "skipDates": [],
       "intensity": {}
     }
-  ]
+  ],
+  "settings": {
+    "alertProvider": "discord",
+    "webhookUrl": "",
+    "ghPat": "",
+    "commitPool": "tweak\nhousekeeping\ncleanup\nrefactor\nminor update",
+    "hasCompletedSetup": true
+  }
 }
