@@ -82,8 +82,8 @@ def delayWithJitter(jitter_minutes: int) -> int:
     if jitter_minutes <= 0:
         return 0
     delay_s = random.randint(0, jitter_minutes * 60)
-    print(f"⏳ Jitter delay: {delay_s}s (max {jitter_minutes * 60}s)")
-    time.sleep(delay_s)
+    print(f"⏳ Jitter delay: {delay_s}s (max {jitter_minutes * 60}s) [SKIPPED FOR TEST]")
+    # time.sleep(delay_s)  <-- Temporarily disabled for live test
     return delay_s
 
 

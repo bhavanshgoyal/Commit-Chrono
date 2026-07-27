@@ -1,0 +1,12 @@
+{
+  "priority": "normal",
+  "addedAt": "2026-07-27T06:43:21.935387+00:00",
+  "notEligibleUntil": null,
+  "dependsOn": null,
+  "held": false,
+  "lastSkippedAt": null,
+  "type": "general",
+  "scheduleId": null,
+  "targetRepo": null,
+  "targetPath": null
+}

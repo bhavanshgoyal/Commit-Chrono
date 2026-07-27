@@ -1,0 +1,39 @@
+{
+  "armedSlots": [
+    {
+      "scheduleId": "self-log",
+      "slotId": "2026-07-27T12:28:00+05:30",
+      "notifiedAt": "2026-07-27T06:57:51.052315+00:00",
+      "aborted": false,
+      "resolution": null
+    },
+    {
+      "scheduleId": "self-log",
+      "slotId": "2026-07-27T12:29:00+05:30",
+      "notifiedAt": "2026-07-27T06:57:51.867495+00:00",
+      "aborted": false,
+      "resolution": null
+    },
+    {
+      "scheduleId": "self-log",
+      "slotId": "2026-07-27T12:30:00+05:30",
+      "notifiedAt": "2026-07-27T06:57:52.881721+00:00",
+      "aborted": false,
+      "resolution": null
+    },
+    {
+      "scheduleId": "self-log",
+      "slotId": "2026-07-27T12:31:00+05:30",
+      "notifiedAt": "2026-07-27T06:57:53.360858+00:00",
+      "aborted": false,
+      "resolution": null
+    },
+    {
+      "scheduleId": "self-log",
+      "slotId": "2026-07-27T12:32:00+05:30",
+      "notifiedAt": "2026-07-27T06:57:53.805737+00:00",
+      "aborted": false,
+      "resolution": null
+    }
+  ]
+}
