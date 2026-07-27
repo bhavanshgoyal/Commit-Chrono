@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/cd0c1c87-a3f1-4db3-bb66-c9569ba5432a" alt="Commit Chrono Logo" width="150" />
+  <img src="desktop/src/assets/logo.jpg" alt="Commit Chrono Logo" width="150" style="border-radius: 20px;" />
   <h1>Commit Chrono</h1>
   <p><strong>A Local-First, Privacy-Respecting GitHub Automator.</strong></p>
 </div>
